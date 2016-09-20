@@ -75,7 +75,7 @@ _setdir() {
     set_env ${gmpy_cdir_prefix}_${gmpy_cdir_cnt}_$1 $2
 }
 
-#_cdir <label|num|path>
+# _cdir <label|num|path>
 _cdir() {
     if [ "$#" -ne "1" ]; then
         return -1
@@ -87,6 +87,68 @@ _cdir() {
     fi
 
     echo $(get_path $1)
+}
+
+# _lsdir [num|label]
+_lsdir() {
+    if [ $# -gt 1 ]; then
+        echo "Usage: lsdir [num|label]"
+        return -1
+    fi
+   
+    if [ $# -eq 1 ]; then
+        ls_one_dir $1
+    else
+        ls_all_dirs
+    fi
+}
+
+# ls_all_dirs
+ls_all_dirs() {
+    for (( cnt=1; cnt<=${gmpy_cdir_cnt} ; cnt++ ))
+    do
+        ls_format $(env | grep "${gmpy_cdir_prefix}_${cnt}" | head -n 1)
+    done
+}
+
+# ls_one_dir <num|label>
+ls_one_dir() {
+    case "`check_type $1`" in
+        num)
+            ls_format "$(env | grep "${gmpy_cdir_prefix}_$1" | head -n 1)"
+            ;;
+        label)
+            ls_format "$(env | grep "${gmpy_cdir_prefix}_[0-9]_$1" | head -n 1)"
+            ;;
+        *)
+            echo "Usage: lsdir [num|label]"
+            ;;
+    esac
+}
+
+# ls_format <gmpy_cdir_num_label=path>
+ls_format() {
+    if [ ! ${1:0:9} = ${gmpy_cdir_prefix} ]; then 
+        return -1
+    fi
+    
+    local num
+    local label
+    local path
+
+    num=${1#*_}
+    num=${num#*_}
+    num=${num%_*}
+
+    label=${1##*_}
+    label=${label%=*}
+
+    path=${1##*=}
+
+    [ $(check_type ${num}) = "num" ] && echo -en "${num}" || return -1
+    [ $(check_type ${label}) = "label" ] && echo -en "\t${label}" || return -1
+    [ $(check_type ${path}) = "path" ] && echo -e "\t\t${path}" || return -1
+
 }
 
 #why it name gmpy? just i enjoy!
@@ -107,11 +169,11 @@ gmpy() {
             ;;
         "lsdir")
             shift
-            lsdir $@
+            _lsdir $@
             ;;
         "cldir")
             shift
-            cldir $@
+            _cldir $@
             ;;
         *)
             echo "Usage: cdir|setdir|lsdir|cldir"
