@@ -3,17 +3,17 @@
 #   the entry of cdir, setdir, lsdir, rmdir, whisch is to set for env functions
 
 cdir() {
-    cd `cdirs cdir $@`
+    cd `scdir cdir $@`
 }
 
 setdir() {
-    cdirs setdir $@
+    source scdir setdir $@
 }
 
 lsdir() {
-    cdirs lsdir $@
+    scdir lsdir $@
 }
 
 cldir() {
-    cdirs cldir $@
+    source scdir cldir $@
 }
