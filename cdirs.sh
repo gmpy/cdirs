@@ -25,13 +25,13 @@ get_path() {
 # get_path_from_num <num>
 get_path_from_num() {
     var=$(env | grep "${gmpy_cdir_prefix}_$1" | head -n 1)
-    [ -n "${var}" ] && echo $(split_num)
+    [ -n "${var}" ] && echo $(split_path ${var})
 }
 
 # get_path_from_label <label>
 get_path_from_label() {
     var=$(env | grep "${gmpy_cdir_prefix}_[0-9]_$1" | head -n 1)
-    [ -n "${var}" ] && echo $(split_path)
+    [ -n "${var}" ] && echo $(split_path ${var})
 }
 
 # check_type <label|num|path>
@@ -164,6 +164,11 @@ split_label() {
 # split_path <gmpy_cdir_num_label=path>
 split_path() {
     echo ${1#*=}
+}
+
+# _cldir <num|label|path>
+_cldir() {
+    sleep 1
 }
 
 #why it name gmpy? just i enjoy!
