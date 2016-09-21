@@ -71,8 +71,18 @@ _setdir() {
         return -1
     fi
 
+    if [ "$2" = "." ] || [ "${2:0:2}" = "./" ]; then
+        local path=$(pwd)${2:1}
+    elif [ "${2:0:2}" = ".." ]; then
+        local path=$(pwd)/$2
+    elif [ "$2" = "-" ]; then
+        local path=$(cd - &>/dev/null && pwd && cd - &>/dev/null)
+    else
+        local path=$2
+    fi
+
     export gmpy_cdir_cnt=$(( ${gmpy_cdir_cnt} + 1 ))
-    set_env ${gmpy_cdir_prefix}_${gmpy_cdir_cnt}_$1 $2
+    set_env ${gmpy_cdir_prefix}_${gmpy_cdir_cnt}_$1 ${path}
 }
 
 # _cdir <label|num|path>
@@ -81,7 +91,7 @@ _cdir() {
         return -1
     fi
 
-    if [ "`check_type $1`" = "path" ];then
+    if [ "`check_type $1`" = "path" ]; then
         echo $1
         return 0
     fi
