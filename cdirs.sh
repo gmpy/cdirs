@@ -25,13 +25,13 @@ get_path() {
 # get_path_from_num <num>
 get_path_from_num() {
     var=$(get_env_from_num $1 | head -n 1)
-    [ -n "${var}" ] && echo $(split_path ${var})
+    [ -n "${var}" ] && echo $(get_path_from_env ${var})
 }
 
 # get_path_from_label <label>
 get_path_from_label() {
     var=$(get_env_from_label $1 | head -n 1)
-    [ -n "${var}" ] && echo $(split_path ${var})
+    [ -n "${var}" ] && echo $(get_path_from_env ${var})
 }
 
 # check_type <label|num|path>
@@ -55,11 +55,13 @@ check_type() {
     esac
 }
 
-# set_env <variable> <path>
+# set_env <var> <path>
 set_env() {
     eval "export $1=$2"
 }
 
+
+# _setdir <label> <path>
 _setdir() {
     if [ $# -ne 2 ]; then
         echo "Usage: setdir <label> <path>"
@@ -71,6 +73,7 @@ _setdir() {
         return -1
     fi
 
+    #get path
     if [ "$2" = "." ] || [ "${2:0:2}" = "./" ]; then
         local path=$(pwd)${2:1}
     elif [ "${2:0:2}" = ".." ]; then
@@ -81,8 +84,16 @@ _setdir() {
         local path=$2
     fi
 
-    add_num_cnt
-    set_env ${gmpy_cdir_prefix}_$(get_num_cnt)_$1 ${path}
+    #get var
+    local var=$(get_env_from_label $1)
+    if [ -n "${var}" ]; then
+        var=${var%%=*}
+    else
+        add_num_cnt
+        var=${gmpy_cdir_prefix}_$(get_num_cnt)_$1
+    fi
+
+    set_env ${var} ${path}
 }
 
 # _cdir <label|num|path>
@@ -151,9 +162,9 @@ ls_format() {
         return -1
     fi
     
-    local num=$(split_num $1)
-    local label=$(split_label $1)
-    local path=$(split_path $1)
+    local num=$(get_num_from_env $1)
+    local label=$(get_label_from_env $1)
+    local path=$(get_path_from_env $1)
 
     [ $(check_type ${num}) = "num" ] && echo -en "${num} :" || return -1
     [ $(check_type ${label}) = "label" ] && echo -en "\t${label}" || return -1
@@ -161,8 +172,8 @@ ls_format() {
 
 }
 
-# split_num <gmpy_cdir_num_label=path>
-split_num() {
+# get_num_from_env <gmpy_cdir_num_label=path>
+get_num_from_env() {
     local num
     num=${1#*_}
     num=${num#*_}
@@ -171,8 +182,8 @@ split_num() {
     echo ${num}
 }
 
-# split_label <gmpy_cdir_num_label=path>
-split_label() {
+# get_label_from_env <gmpy_cdir_num_label=path>
+get_label_from_env() {
     local label
     label=${1#*_}
     label=${label#*_}
@@ -182,8 +193,8 @@ split_label() {
     echo ${label}
 }
 
-# split_path <gmpy_cdir_num_label=path>
-split_path() {
+# get_path_from_env <gmpy_cdir_num_label=path>
+get_path_from_env() {
     echo ${1##*=}
 }
 
