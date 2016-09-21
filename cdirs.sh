@@ -81,8 +81,8 @@ _setdir() {
         local path=$2
     fi
 
-    export gmpy_cdir_cnt=$(( ${gmpy_cdir_cnt} + 1 ))
-    set_env ${gmpy_cdir_prefix}_${gmpy_cdir_cnt}_$1 ${path}
+    add_num_cnt
+    set_env ${gmpy_cdir_prefix}_$(get_num_cnt)_$1 ${path}
 }
 
 # _cdir <label|num|path>
@@ -115,10 +115,19 @@ _lsdir() {
 
 # ls_all_dirs
 ls_all_dirs() {
-    for (( cnt=1; cnt<=${gmpy_cdir_cnt} ; cnt++ ))
+    for (( cnt=1; cnt <= $(get_num_cnt) ; cnt++ ))
     do
         ls_format $(get_env_from_num ${cnt} | head -n 1)
     done
+}
+
+get_num_cnt() {
+    [ -z "${gmpy_cdir_cnt}" ] && export gmpy_cdir_cnt=0
+    echo ${gmpy_cdir_cnt}
+}
+
+add_num_cnt() {
+    export gmpy_cdir_cnt=$(( $(get_num_cnt) + 1 ))
 }
 
 # ls_one_dir <num|label>
