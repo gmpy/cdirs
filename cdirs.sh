@@ -25,13 +25,13 @@ get_path() {
 # get_path_from_num <num>
 get_path_from_num() {
     var=$(env | grep "${gmpy_cdir_prefix}_$1" | head -n 1)
-    [ -n "${var}" ] && echo ${var#*=}
+    [ -n "${var}" ] && echo $(split_num)
 }
 
 # get_path_from_label <label>
 get_path_from_label() {
     var=$(env | grep "${gmpy_cdir_prefix}_[0-9]_$1" | head -n 1)
-    [ -n "${var}" ] && echo ${var#*=}
+    [ -n "${var}" ] && echo $(split_path)
 }
 
 # check_type <label|num|path>
@@ -132,23 +132,38 @@ ls_format() {
         return -1
     fi
     
-    local num
-    local label
-    local path
+    local num=$(split_num $1)
+    local label=$(split_label $1)
+    local path=$(split_path $1)
 
+    [ $(check_type ${num}) = "num" ] && echo -en "${num} :" || return -1
+    [ $(check_type ${label}) = "label" ] && echo -en "\t${label}" || return -1
+    [ $(check_type ${path}) = "path" ] && echo -e "\t\t${path}" || return -1
+
+}
+
+# split_num <gmpy_cdir_num_label=path>
+split_num() {
+    local num
     num=${1#*_}
     num=${num#*_}
     num=${num%_*}
 
+    echo ${num}
+}
+
+# split_label <gmpy_cdir_num_label=path>
+split_label() {
+    local label
     label=${1##*_}
     label=${label%=*}
 
-    path=${1##*=}
+    echo ${label}
+}
 
-    [ $(check_type ${num}) = "num" ] && echo -en "${num}" || return -1
-    [ $(check_type ${label}) = "label" ] && echo -en "\t${label}" || return -1
-    [ $(check_type ${path}) = "path" ] && echo -e "\t\t${path}" || return -1
-
+# split_path <gmpy_cdir_num_label=path>
+split_path() {
+    echo ${1#*=}
 }
 
 #why it name gmpy? just i enjoy!
