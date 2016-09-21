@@ -24,13 +24,13 @@ get_path() {
 
 # get_path_from_num <num>
 get_path_from_num() {
-    var=$(env | grep "${gmpy_cdir_prefix}_$1" | head -n 1)
+    var=$(get_env_from_num $1 | head -n 1)
     [ -n "${var}" ] && echo $(split_path ${var})
 }
 
 # get_path_from_label <label>
 get_path_from_label() {
-    var=$(env | grep "${gmpy_cdir_prefix}_[0-9]_$1" | head -n 1)
+    var=$(get_env_from_label $1 | head -n 1)
     [ -n "${var}" ] && echo $(split_path ${var})
 }
 
@@ -107,7 +107,7 @@ _lsdir() {
 ls_all_dirs() {
     for (( cnt=1; cnt<=${gmpy_cdir_cnt} ; cnt++ ))
     do
-        ls_format $(env | grep "${gmpy_cdir_prefix}_${cnt}" | head -n 1)
+        ls_format $(get_env_from_num ${cnt} | head -n 1)
     done
 }
 
@@ -115,10 +115,10 @@ ls_all_dirs() {
 ls_one_dir() {
     case "`check_type $1`" in
         num)
-            ls_format "$(env | grep "${gmpy_cdir_prefix}_$1" | head -n 1)"
+            ls_format "$(get_env_from_num $1 | head -n 1)"
             ;;
         label)
-            ls_format "$(env | grep "${gmpy_cdir_prefix}_[0-9]_$1" | head -n 1)"
+            ls_format "$(get_env_from_label $1 | head -n 1)"
             ;;
         *)
             echo "Usage: lsdir [num|label]"
@@ -128,7 +128,7 @@ ls_one_dir() {
 
 # ls_format <gmpy_cdir_num_label=path>
 ls_format() {
-    if [ ! ${1:0:9} = ${gmpy_cdir_prefix} ]; then 
+    if [ ! "${1:0:9}" = "${gmpy_cdir_prefix}" ]; then 
         return -1
     fi
     
@@ -147,7 +147,7 @@ split_num() {
     local num
     num=${1#*_}
     num=${num#*_}
-    num=${num%_*}
+    num=${num%%_*}
 
     echo ${num}
 }
@@ -155,20 +155,75 @@ split_num() {
 # split_label <gmpy_cdir_num_label=path>
 split_label() {
     local label
-    label=${1##*_}
-    label=${label%=*}
+    label=${1#*_}
+    label=${label#*_}
+    label=${label#*_}
+    label=${label%%=*}
 
     echo ${label}
 }
 
 # split_path <gmpy_cdir_num_label=path>
 split_path() {
-    echo ${1#*=}
+    echo ${1##*=}
 }
 
 # _cldir <num|label|path>
 _cldir() {
-    sleep 1
+    if [ $# -ne 1 ]; then
+        echo "Usage: cldir <num|label|path>"
+        return -1
+    fi
+
+    case "$(check_type $1)" in
+        "num")
+            clear_dir_from_num $1
+            ;;
+        "label")
+            clear_dir_from_label $1
+            ;;
+        "path")
+            clear_dir_from_path $1
+            ;;
+    esac
+}
+
+# split_env <env>
+split_env() {
+   echo ${1%=*} 
+}
+
+# clear_dir_from_num <num>
+clear_dir_from_num() {
+    unset $(split_env $(get_env_from_num $1))
+}
+
+# clear_dir_from_path <num>
+clear_dir_from_path() {
+    unset $(split_env $(get_env_from_path $1))
+}
+
+# clear_dir_from_label <num>
+clear_dir_from_label() {
+    unset $(split_env $(get_env_from_label $1))
+}
+
+# get_env_from_num <num>
+get_env_from_num() {
+    local env=$(env | grep "^${gmpy_cdir_prefix}_$1")
+    [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
+}
+
+# get_env_from_path <path>
+get_env_from_path() {
+    local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_.*=$1/?$")
+    [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
+}
+
+# get_env_from_label <label>
+get_env_from_label() {
+    local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1")
+    [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
 }
 
 #why it name gmpy? just i enjoy!
