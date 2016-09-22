@@ -257,7 +257,7 @@ clear_dir_from_label() {
 
 # get_env_from_num <num>
 get_env_from_num() {
-    local env=$(env | grep "^${gmpy_cdir_prefix}_$1")
+    local env=$(env | grep "^${gmpy_cdir_prefix}_$1_.*")
     [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
 }
 
