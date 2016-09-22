@@ -34,6 +34,18 @@ get_path_from_label() {
     [ -n "${var}" ] && echo $(get_path_from_env ${var})
 }
 
+# is_dir_path <label|num|path>
+is_dir_path() {
+    case ${1:0:1} in
+        -|.|~|/)
+            echo yes
+            ;;
+        *)
+            [ -d $1 ] && echo yes || echo no
+            ;;
+    esac
+}
+
 # check_type <label|num|path>
 # echo the result
 check_type() {
@@ -42,10 +54,12 @@ check_type() {
         return -1
     fi
 
+    if [ "$(is_dir_path $1)" = "yes" ]; then
+        echo path
+        return 0
+    fi
+
     case ${1:0:1} in
-        -|.|~|/)
-            echo path
-            ;;
         0|1|2|3|4|5|6|7|8|9)
             echo num
             ;;
