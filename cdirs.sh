@@ -200,22 +200,25 @@ get_path_from_env() {
 
 # _cldir <num|label|path>
 _cldir() {
-    if [ $# -ne 1 ]; then
-        echo "Usage: cldir <num|label|path>"
+    if [ $# -lt 1 ]; then
+        echo "Usage: cldir <num1|label1|path1> <num2|label2|path2> ..."
         return -1
     fi
 
-    case "$(check_type $1)" in
-        "num")
-            clear_dir_from_num $1
-            ;;
-        "label")
-            clear_dir_from_label $1
-            ;;
-        "path")
-            clear_dir_from_path $1
-            ;;
-    esac
+    for para in $@
+    do
+        case "$(check_type ${para})" in
+            "num")
+                clear_dir_from_num ${para}
+                ;;
+            "label")
+                clear_dir_from_label ${para}
+                ;;
+            "path")
+                clear_dir_from_path ${para}
+                ;;
+        esac
+    done
 }
 
 # split_env <env>
