@@ -274,25 +274,27 @@ _cldir() {
     done
 }
 
-# split_env <env>
-split_env() {
+# get_var_from_env <env>
+get_var_from_env() {
    echo ${1%=*} 
 }
 
 # clear_dir_from_num <num>
 clear_dir_from_num() {
-    unset $(split_env $(get_env_from_num $1))
+    unset $(get_var_from_env $(get_env_from_num $1))
 }
 
 # clear_dir_from_path <num>
 clear_dir_from_path() {
-    local path=$(get_absolute_path $1)
-    unset $(split_env $(get_env_from_path ${path}))
+    for tmp in $(get_env_from_path $(get_absolute_path $1))
+    do
+        unset $(get_var_from_env ${tmp})
+    done
 }
 
 # clear_dir_from_label <num>
 clear_dir_from_label() {
-    unset $(split_env $(get_env_from_label $1))
+    unset $(get_var_from_env $(get_env_from_label $1))
 }
 
 # get_env_from_num <num>
@@ -302,9 +304,10 @@ get_env_from_num() {
 }
 
 # get_env_from_path <path>
+# enable echo more than one env
 get_env_from_path() {
     local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_.*=$1/?$")
-    [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
+    [ -n "${env}" ] && echo ${env}
 }
 
 # get_env_from_label <label>
