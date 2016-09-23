@@ -176,10 +176,15 @@ _lsdir() {
 
 # ls_all_dirs
 ls_all_dirs() {
-    for (( cnt=1; cnt <= $(get_num_cnt) ; cnt++ ))
+    for env in $(get_all_env)
     do
-        ls_format $(get_env_from_num ${cnt} | head -n 1)
+        ls_format ${env}
     done
+}
+
+# get_all_env
+get_all_env() {
+    env | egrep "${gmpy_cdir_prefix}_[0-9]+_.*=.*$" | sort
 }
 
 get_num_cnt() {
@@ -206,7 +211,7 @@ ls_one_dir() {
     esac
 }
 
-# ls_format <gmpy_cdir_num_label=path>
+# ls_format <env>
 ls_format() {
     if [ ! "${1:0:9}" = "${gmpy_cdir_prefix}" ]; then 
         return -1
