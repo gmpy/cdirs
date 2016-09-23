@@ -36,8 +36,8 @@ get_path_from_label() {
 
 # is_dir_path <label|num|path>
 is_dir_path() {
-    case ${1:0:1} in
-        -|.|~|/)
+    case ${1} in
+        -)
             echo yes
             ;;
         *)
