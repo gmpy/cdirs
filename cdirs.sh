@@ -140,7 +140,7 @@ _setdir() {
     local path=$(get_absolute_path $2)
 
     #get var
-    local var=$(get_env_from_label $1)
+    local var=$(get_env_from_label $1 | head -n 1)
     if [ -n "${var}" ]; then
         var=${var%%=*}
     else
@@ -149,7 +149,7 @@ _setdir() {
     fi
 
     if [ -n "${path}" ] && [ -n "${var}" ]; then
-        set_env ${var} ${path} && ls_format $(get_env_from_label $1)
+        set_env ${var} ${path} && ls_format $(get_env_from_label $1 | head -n 1)
     fi
 }
 
@@ -207,13 +207,16 @@ ls_one_dir() {
         num)
             ls_format "$(get_env_from_num $1)"
             ;;
-        label)
-            ls_format "$(get_env_from_label $1)"
-            ;;
         path)
-            for path in $(get_env_from_path $(get_absolute_path $1))
+            for env in $(get_env_from_path $(get_absolute_path $1))
             do
-                ls_format ${path}
+                ls_format ${env}
+            done
+            ;;
+        label)  #support regular expression
+            for env in $(get_env_from_label $1)
+            do
+                ls_format "${env}"
             done
             ;;
     esac
@@ -304,7 +307,7 @@ clear_dir_from_path() {
 
 # clear_dir_from_label <label>
 clear_dir_from_label() {
-    local env=$(get_env_from_label $1)
+    local env=$(get_env_from_label $1 | head -n 1)
     unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
 }
 
@@ -322,8 +325,9 @@ get_env_from_path() {
 }
 
 # get_env_from_label <label>
+# enable echo more than one env if input regular expression
 get_env_from_label() {
-    local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1=.*$")
+    local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1=.*$" | sort)
     [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
 }
 
