@@ -90,7 +90,7 @@ get_absolute_path() {
         echo "${PWD}"
         return 0
     elif [ "$1" = ".." ]; then
-        echo "${OLDPWD}"
+        echo "${PWD%/*}"
         return 0
     elif [ "$1" = "~" ]; then
         echo "${HOME}"
@@ -107,8 +107,11 @@ get_absolute_path() {
         path_tmp="${path_tmp#*/}"
     done
 
-    [ ! "${path_tmp}" = "$1" ] && echo "${path}/${path_tmp}" && return 0
-
+    if [ ! "${path_tmp}" = "$1" ]; then
+        echo "${path}/${path_tmp}"
+    else
+        echo $1
+    fi
 }
 
 # _setdir <label> <path>
@@ -145,7 +148,9 @@ _setdir() {
         var=${gmpy_cdir_prefix}_$(get_num_cnt)_$1
     fi
 
-    set_env ${var} ${path} && ls_format $(get_env_from_label $1)
+    if [ -n "${path}" ] && [ -n "${var}" ]; then
+        set_env ${var} ${path} && ls_format $(get_env_from_label $1)
+    fi
 }
 
 # _cdir <label|num|path>
