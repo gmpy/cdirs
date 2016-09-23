@@ -1,5 +1,33 @@
 #!/bin/bash
 
+cdir() {
+    if [ "$#" -gt "1" ]; then
+        echo "Usage: cdir <num|label|path>"
+        return 0
+    elif [ "$#" -eq "0" ]; then
+        cd
+    else
+        cd `_cdir $@`
+    fi
+}
+
+setdir() {
+    if [ $# -ne 2 ]; then
+        echo "Usage: setdir <label> <path>"
+        return -1
+    else
+        _setdir $@
+    fi
+}
+
+lsdir() {
+    _lsdir $@
+}
+
+cldir() {
+    _cldir $@
+}
+
 gmpy_cdir_prefix="gmpy_cdir"
 
 # get_path <label|num|path>
@@ -121,11 +149,6 @@ get_absolute_path() {
 
 # _setdir <label> <path>
 _setdir() {
-    if [ $# -ne 2 ]; then
-        echo "Usage: setdir <label> <path>"
-        return -1
-    fi
-
     if [ "$(is_exited_dir $2)" = "no" ]; then
         echo no exited dir, worry path
     fi
@@ -160,10 +183,6 @@ _setdir() {
 
 # _cdir <label|num|path>
 _cdir() {
-    if [ "$#" -ne "1" ]; then
-        return -1
-    fi
-
     if [ "`is_exited_dir $1`" = "path" ]; then
         echo $1
         return 0
@@ -337,36 +356,3 @@ get_env_from_label() {
     local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1=.*$" | sort)
     [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
 }
-
-#why it name gmpy? just i enjoy!
-gmpy() {
-    if [ $# -lt 1 ]; then
-        echo "Usage: cdir|setdir|lsdir|cldir"
-        return -1
-    fi
-
-    case "$1" in
-        "cdir")
-            shift
-            _cdir $@
-            ;;
-        "setdir")
-            shift
-            _setdir $@
-            ;;
-        "lsdir")
-            shift
-            _lsdir $@
-            ;;
-        "cldir")
-            shift
-            _cldir $@
-            ;;
-        *)
-            echo "Usage: cdir|setdir|lsdir|cldir"
-            return -1
-            ;;
-    esac
-}
-
-gmpy $@
