@@ -17,9 +17,14 @@ get_path() {
             echo $(get_path_from_num $1)
             ;;
         "label")
-            echo $(get_path_from_label $1)
+            [ "$(check_label $1)" = "yes" ] && echo $(get_path_from_label $1) || echo $1
             ;;
     esac
+}
+
+# check_label <label>
+check_label() {
+    [ -n "$(echo $1 | egrep "^[[:alpha:]]([[:alnum:]]*_*[[:alnum:]]*)*$")" ] && echo yes || echo no
 }
 
 # get_path_from_num <num>
@@ -130,7 +135,7 @@ _setdir() {
         return -1
     fi
 
-    if [ -z "$(echo $1 | egrep "^[[:alpha:]]([[:alnum:]]*_*[[:alnum:]]*)*$")" ]; then
+    if [ "$(check_label $1)" = "no" ];then
         echo -n "label error: "
         echo "label is a combination of letters , numbers and character '_' , which is begin with letter"
         return -1
