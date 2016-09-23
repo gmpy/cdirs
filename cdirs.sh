@@ -145,7 +145,7 @@ _setdir() {
         var=${gmpy_cdir_prefix}_$(get_num_cnt)_$1
     fi
 
-    set_env ${var} ${path}
+    set_env ${var} ${path} && ls_format $(get_env_from_label $1)
 }
 
 # _cdir <label|num|path>
