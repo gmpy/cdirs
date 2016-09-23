@@ -31,7 +31,7 @@ get_path_from_num() {
 # get_path_from_label <label>
 get_path_from_label() {
     var=$(get_env_from_label $1 | head -n 1)
-    [ -n "${var}" ] && echo $(get_path_from_env ${var})
+    [ -n "${var}" ] && echo $(get_path_from_env ${var}) || echo $1
 }
 
 # is_dir_path <label|num|path>
