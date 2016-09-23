@@ -317,7 +317,7 @@ get_env_from_num() {
 # get_env_from_path <path>
 # enable echo more than one env
 get_env_from_path() {
-    local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_.*=$1/?$")
+    local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_.*=$1/?$" | sort)
     [ -n "${env}" ] && echo ${env}
 }
 
