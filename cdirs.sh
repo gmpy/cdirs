@@ -102,7 +102,7 @@ get_absolute_path() {
         if [ "${path_tmp%%/*}" = ".." ]; then
             path=${path%/*}
         elif [ ! "${path_tmp%%/*}" = "." ]; then
-            paht="${path}/${path_tmp%%/*}"
+            path="${path}/${path_tmp%%/*}"
         fi
         path_tmp="${path_tmp#*/}"
     done
@@ -162,7 +162,7 @@ _cdir() {
     echo $(get_path $1)
 }
 
-# _lsdir [num|label]
+# _lsdir [num1|label1|path1] [num2|label2|path2] ...
 _lsdir() {
     if [ $# -gt 0 ]; then
         for para in $@
@@ -196,17 +196,20 @@ add_num_cnt() {
     export gmpy_cdir_cnt=$(( $(get_num_cnt) + 1 ))
 }
 
-# ls_one_dir <num|label>
+# ls_one_dir <num|label|path>
 ls_one_dir() {
     case "`check_type $1`" in
         num)
-            ls_format "$(get_env_from_num $1 | head -n 1)"
+            ls_format "$(get_env_from_num $1)"
             ;;
         label)
-            ls_format "$(get_env_from_label $1 | head -n 1)"
+            ls_format "$(get_env_from_label $1)"
             ;;
-        *)
-            echo "Usage: lsdir [num|label]"
+        path)
+            for path in $(get_env_from_path $(get_absolute_path $1))
+            do
+                ls_format ${path}
+            done
             ;;
     esac
 }
