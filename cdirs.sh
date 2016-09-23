@@ -154,13 +154,11 @@ _cdir() {
 
 # _lsdir [num|label]
 _lsdir() {
-    if [ $# -gt 1 ]; then
-        echo "Usage: lsdir [num|label]"
-        return -1
-    fi
-   
-    if [ $# -eq 1 ]; then
-        ls_one_dir $1
+    if [ $# -gt 0 ]; then
+        for para in $@
+        do
+            ls_one_dir $para
+        done
     else
         ls_all_dirs
     fi
