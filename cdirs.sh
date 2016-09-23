@@ -34,8 +34,8 @@ get_path_from_label() {
     [ -n "${var}" ] && echo $(get_path_from_env ${var}) || echo $1
 }
 
-# is_dir_path <label|num|path>
-is_dir_path() {
+# is_exited_dir <label|num|path>
+is_exited_dir() {
     case ${1} in
         -)
             echo yes
@@ -53,14 +53,12 @@ check_type() {
         return -1
     fi
 
-    if [ "$(is_dir_path $1)" = "yes" ]; then
-        echo path
-        return 0
-    fi
-
     case ${1:0:1} in
         0|1|2|3|4|5|6|7|8|9)
             echo num
+            ;;
+        .|~|-|/)
+            echo path
             ;;
         *)
             echo label
@@ -113,6 +111,10 @@ _setdir() {
         return -1
     fi
 
+    if [ "$(is_exited_dir $2)" = "no" ]; then
+        echo no exited dir, worry path
+    fi
+
     if [ ! "`check_type $1`" = "label" ] || [ ! "`check_type $2`" = "path" ]; then
         echo "Usage: setdir <label> <path>"
         return -1
@@ -139,7 +141,7 @@ _cdir() {
         return -1
     fi
 
-    if [ "`check_type $1`" = "path" ]; then
+    if [ "`is_exited_dir $1`" = "path" ]; then
         echo $1
         return 0
     fi
