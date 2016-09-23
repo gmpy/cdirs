@@ -282,20 +282,22 @@ get_var_from_env() {
 
 # clear_dir_from_num <num>
 clear_dir_from_num() {
-    unset $(get_var_from_env $(get_env_from_num $1))
+    local env=$(get_env_from_num $1)
+    unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
 }
 
-# clear_dir_from_path <num>
+# clear_dir_from_path <path>
 clear_dir_from_path() {
-    for tmp in $(get_env_from_path $(get_absolute_path $1))
+    for env in $(get_env_from_path $(get_absolute_path $1))
     do
-        unset $(get_var_from_env ${tmp})
+        unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
     done
 }
 
-# clear_dir_from_label <num>
+# clear_dir_from_label <label>
 clear_dir_from_label() {
-    unset $(get_var_from_env $(get_env_from_label $1))
+    local env=$(get_env_from_label $1)
+    unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
 }
 
 # get_env_from_num <num>
