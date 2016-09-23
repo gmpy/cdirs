@@ -74,6 +74,38 @@ set_env() {
     eval "export $1=$2"
 }
 
+# get_absolute_path <path>
+get_absolute_path() {
+    local path="${PWD}"
+    local path_tmp=$1
+
+    if [ "$1" = "-" ]; then
+        echo "${OLDPWD}"
+        return 0
+    elif [ "$1" = "." ]; then
+        echo "${PWD}"
+        return 0
+    elif [ "$1" = ".." ]; then
+        echo "${OLDPWD}"
+        return 0
+    elif [ "$1" = "~" ]; then
+        echo "${HOME}"
+        return 0
+    fi
+
+    while [ -n "$(echo ${path_tmp} | egrep "\./|\.\./")" ]
+    do
+        if [ "${path_tmp%%/*}" = ".." ]; then
+            path=${path%/*}
+        elif [ ! "${path_tmp%%/*}" = "." ]; then
+            paht="${path}/${path_tmp%%/*}"
+        fi
+        path_tmp="${path_tmp#*/}"
+    done
+
+    [ ! "${path_tmp}" = "$1" ] && echo "${path}/${path_tmp}" && return 0
+
+}
 
 # _setdir <label> <path>
 _setdir() {
@@ -88,15 +120,7 @@ _setdir() {
     fi
 
     #get path
-    if [ "$2" = "." ] || [ "${2:0:2}" = "./" ]; then
-        local path=$(pwd)${2:1}
-    elif [ "${2:0:2}" = ".." ]; then
-        local path=$(pwd)/$2
-    elif [ "$2" = "-" ]; then
-        local path=$(cd - &>/dev/null && pwd && cd - &>/dev/null)
-    else
-        local path=$2
-    fi
+    local path=$(get_absolute_path $2)
 
     #get var
     local var=$(get_env_from_label $1)
@@ -247,7 +271,8 @@ clear_dir_from_num() {
 
 # clear_dir_from_path <num>
 clear_dir_from_path() {
-    unset $(split_env $(get_env_from_path $1))
+    local path=$(get_absolute_path $1)
+    unset $(split_env $(get_env_from_path ${path}))
 }
 
 # clear_dir_from_label <num>
