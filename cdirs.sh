@@ -297,7 +297,7 @@ clear_dir_from_label() {
 
 # get_env_from_num <num>
 get_env_from_num() {
-    local env=$(env | grep "^${gmpy_cdir_prefix}_$1_.*")
+    local env=$(env | grep "^${gmpy_cdir_prefix}_$1_.*=.*$")
     [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
 }
 
@@ -309,7 +309,7 @@ get_env_from_path() {
 
 # get_env_from_label <label>
 get_env_from_label() {
-    local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1")
+    local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1=.*$")
     [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
 }
 
