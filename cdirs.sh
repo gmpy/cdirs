@@ -221,25 +221,8 @@ ls_format() {
     local label=$(get_label_from_env $1)
     local path=$(get_path_from_env $1)
 
-    if [ -n "${num}" ]; then
-        echo -en "${num} )"
-    else
-        echo 
-        return -1
-    fi
-
-    if [ -n "${label}" ]; then
-        echo -en "\t${label}"
-    else
-        echo 
-        return -1
-    fi
-
-    if [ -n "${path}" ]; then
-        echo -e "\t${path}"
-    else
-        echo 
-        return -1
+    if [ -n "${num}" ] && [ -n "${label}" ] && [ -n "${path}" ]; then
+        echo -e "${num} )\t${label}\t\t${path}"
     fi
 }
 
