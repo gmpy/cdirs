@@ -306,14 +306,16 @@ clear_dir_from_num() {
 clear_dir_from_path() {
     for env in $(get_env_from_path $(get_absolute_path $1))
     do
-        unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
+        unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})"
     done
 }
 
 # clear_dir_from_label <label>
 clear_dir_from_label() {
-    local env=$(get_env_from_label $1 | head -n 1)
-    unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
+    for env in $(get_env_from_label $1)
+    do
+        unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
+    done
 }
 
 # get_env_from_num <num>
