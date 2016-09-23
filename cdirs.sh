@@ -47,23 +47,26 @@ is_exited_dir() {
 }
 
 # check_type <label|num|path>
-# echo the result
+# only check the string format but not whether exist the dir
+# num: only number
+# path: string wiht ./ or ../ or /, sometime it can be ~ or begin with ~
+# label: other else
 check_type() {
     if [ $# -ne 1 ]; then
         return -1
     fi
 
-    case ${1:0:1} in
-        0|1|2|3|4|5|6|7|8|9)
-            echo num
-            ;;
-        .|~|-|/)
-            echo path
-            ;;
-        *)
-            echo label
-            ;;
-    esac
+    if $(echo $1 | egrep "^[0-9]+$" &>/dev/null); then
+        echo num
+        return 0
+    fi
+
+    if [ -n "$(echo $1 | egrep "\./|\.\./|/")" ] || [ "${1:0:1}" = "~" ] || [ "$1" = "-" ]; then
+        echo path
+        return 0
+    fi
+
+    echo label
 }
 
 # set_env <var> <path>
