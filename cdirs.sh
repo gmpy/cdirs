@@ -50,7 +50,6 @@ is_dir_path() {
 # echo the result
 check_type() {
     if [ $# -ne 1 ]; then
-        echo "Usage: check_type <label|num|path>"
         return -1
     fi
 
@@ -204,10 +203,26 @@ ls_format() {
     local label=$(get_label_from_env $1)
     local path=$(get_path_from_env $1)
 
-    [ $(check_type ${num}) = "num" ] && echo -en "${num} :" || return -1
-    [ $(check_type ${label}) = "label" ] && echo -en "\t${label}" || return -1
-    [ $(check_type ${path}) = "path" ] && echo -e "\t\t${path}" || return -1
+    if [ -n "${num}" ]; then
+        echo -en "${num} )"
+    else
+        echo 
+        return -1
+    fi
 
+    if [ -n "${label}" ]; then
+        echo -en "\t${label}"
+    else
+        echo 
+        return -1
+    fi
+
+    if [ -n "${path}" ]; then
+        echo -e "\t${path}"
+    else
+        echo 
+        return -1
+    fi
 }
 
 # get_num_from_env <gmpy_cdir_num_label=path>
