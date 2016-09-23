@@ -61,7 +61,11 @@ check_type() {
         return 0
     fi
 
-    if [ -n "$(echo $1 | egrep "\./|\.\./|/")" ] || [ "${1:0:1}" = "~" ] || [ "$1" = "-" ]; then
+    if [ -n "$(echo $1 | egrep "\./|\.\./|/")" ] \
+        || [ "${1:0:1}" = "~" ] \
+        || [ "$1" = "-" ] \
+        || [ "$1" = "." ] \
+        || [ "$1" = ".." ]; then
         echo path
         return 0
     fi
@@ -120,6 +124,12 @@ _setdir() {
 
     if [ ! "`check_type $1`" = "label" ] || [ ! "`check_type $2`" = "path" ]; then
         echo "Usage: setdir <label> <path>"
+        return -1
+    fi
+
+    if [ -z "$(echo $1 | egrep "^[[:alpha:]]([[:alnum:]]*_*[[:alnum:]]*)*$")" ]; then
+        echo -n "label error: "
+        echo "label is a combination of letters , numbers and character '_' , which is begin with letter"
         return -1
     fi
 
