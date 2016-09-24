@@ -142,6 +142,8 @@ get_absolute_path() {
 
     if [ ! "${path_tmp}" = "$1" ]; then
         echo "${path}/${path_tmp}"
+    elif [ -d $1 ]; then
+        echo ${PWD}/$1
     else
         echo $1
     fi
