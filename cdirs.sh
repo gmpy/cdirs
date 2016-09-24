@@ -1,7 +1,6 @@
 #!/bin/bash
 
 cdir() {
-    load_default_label
     if [ "$#" -gt "1" ]; then
         echo -e "\033[31mUsage: cdir <num|label|path>\033[0m"
         return 0
@@ -13,7 +12,6 @@ cdir() {
 }
 
 setdir() {
-    load_default_label
     if [ $# -ne 2 ]; then
         echo -e "\033[31mUsage: setdir <label> <path>\033[0m"
         return -1
@@ -23,18 +21,18 @@ setdir() {
 }
 
 lsdir() {
-    load_default_label
     _lsdir $@
 }
 
 cldir() {
-    load_default_label
     _cldir $@
 }
 
-gmpy_cdir_prefix="gmpy_cdir"
-gmpy_cdir_initialized=0
-
+gmpy_init() {
+    gmpy_cdir_prefix="gmpy_cdir"
+    gmpy_cdir_initialized=0
+    load_default_label
+}
 
 # load_default_label
 # load default label by ~/.cdir_default
@@ -375,3 +373,5 @@ get_env_from_label() {
     local env=$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1=.*$" | sort)
     [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
 }
+
+gmpy_init
