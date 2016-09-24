@@ -3,7 +3,7 @@
 cdir() {
     load_default_label
     if [ "$#" -gt "1" ]; then
-        echo "Usage: cdir <num|label|path>"
+        echo -e "\033[31mUsage: cdir <num|label|path>\033[0m"
         return 0
     elif [ "$#" -eq "0" ]; then
         cd
@@ -15,7 +15,7 @@ cdir() {
 setdir() {
     load_default_label
     if [ $# -ne 2 ]; then
-        echo "Usage: setdir <label> <path>"
+        echo -e "\033[31mUsage: setdir <label> <path>\033[0m"
         return -1
     else
         _setdir $@
@@ -186,8 +186,10 @@ _setdir() {
     #get var
     local var=$(get_env_from_label $1 | head -n 1)
     if [ -n "${var}" ]; then
+        [ -z "$3" ] && echo -en "\033[31mmodify:\033[0m\t"
         var=${var%%=*}
     else
+        [ -z "$3" ] && echo -en "\033[31mcreate:\033[0m\t"
         add_num_cnt
         var=${gmpy_cdir_prefix}_$(get_num_cnt)_$1
     fi
@@ -274,7 +276,7 @@ ls_format() {
     local path=$(get_path_from_env $1)
 
     if [ -n "${num}" ] && [ -n "${label}" ] && [ -n "${path}" ]; then
-        echo -e "${num} )\t${label}\t\t${path}"
+        echo -e "\033[32m${num})\t${label}\t\t${path}\033[0m"
     fi
 }
 
@@ -335,14 +337,14 @@ get_var_from_env() {
 # clear_dir_from_num <num>
 clear_dir_from_num() {
     local env=$(get_env_from_num $1)
-    unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
+    unset $(get_var_from_env ${env}) && echo -e "\033[31mdelete:\033[0m\t$(ls_format ${env})"
 }
 
 # clear_dir_from_path <path>
 clear_dir_from_path() {
     for env in $(get_env_from_path $(get_absolute_path $1))
     do
-        unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})"
+        unset $(get_var_from_env ${env}) && echo -e "\033[31mdelete:\033[0m\t$(ls_format ${env})"
     done
 }
 
@@ -350,7 +352,7 @@ clear_dir_from_path() {
 clear_dir_from_label() {
     for env in $(get_env_from_label $1)
     do
-        unset $(get_var_from_env ${env}) && echo -e "delete:\t$(ls_format ${env})" 
+        unset $(get_var_from_env ${env}) && echo -e "\033[31mdelete:\033[0m\t$(ls_format ${env})"
     done
 }
 
