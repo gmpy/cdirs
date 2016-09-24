@@ -29,11 +29,14 @@ cldir() {
 }
 
 gmpy_init() {
-    opts=$(getopt -l "replace-cd,help" -o "h" -- $@)
+    opts=$(getopt -l "replace-cd,help" -o "h" -- $@) || return -1
     eval set -- ${opts}
-    while [ "$#" -ne "0" ]
+    while true
     do
         case "$1" in
+            -h|--help)
+                shift
+                ;;
             --replace-cd)
                 alias cd="cdir"
                 shift
@@ -41,6 +44,10 @@ gmpy_init() {
             --)
                 shift
                 break
+                ;;
+            *)
+                shift
+                ;;
         esac
     done
 
