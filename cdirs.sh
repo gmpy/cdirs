@@ -12,6 +12,24 @@ cdir() {
 }
 
 setdir() {
+    opts=$(getopt -l "global,help" -o "hg" -- $@) || return -1
+    eval set -- ${opts}
+    while true
+    do
+        case "$1" in
+            -h|--help)
+                shift
+                ;;
+            -g|--global)
+                _setdir $(eval "echo \$$(( $# - 1 ))") $(eval "echo \$$#") global
+                return 0
+                ;;
+            --)
+                shift
+                break
+        esac
+    done
+
     if [ $# -ne 2 ]; then
         echo -e "\033[31mUsage: setdir <label> <path>\033[0m"
         return -1
@@ -251,7 +269,8 @@ get_absolute_path() {
     fi
 }
 
-# _setdir <label> <path>
+# _setdir <label> <path> [no_print|global]
+# $3 can be that no_print,global
 _setdir() {
     if [ "$(is_exited_dir $2)" = "no" ]; then
         echo -e "\033[31m$2 is not existed\033[0m"
@@ -269,17 +288,21 @@ _setdir() {
     #get var
     local var=$(get_env_from_label $1 | head -n 1)
     if [ -n "${var}" ]; then
-        [ -z "$3" ] && echo -en "\033[31mmodify:\033[0m\t"
+        echo $3 | grep -w "no_print" &>/dev/null || echo -en "\033[31mmodify:\033[0m\t"
         var=${var%%=*}
     else
-        [ -z "$3" ] && echo -en "\033[31mcreate:\033[0m\t"
+        echo $3 | grep -w "no_print" &>/dev/null || echo -en "\033[31mcreate:\033[0m\t"
         add_num_cnt
         var=${gmpy_cdir_prefix}_$(get_num_cnt)_$1
     fi
 
     if [ -n "${path}" ] && [ -n "${var}" ]; then
         set_env ${var} ${path}
-        [ "$?" -eq "0" -a -z "$3" ] && ls_format $(get_env_from_label $1 | head -n 1)
+        if echo $3 | grep -w "global" &>/dev/null; then
+            sed -i "/^$1=.*$/d" ~/.cdir_default
+            echo "$1=${path}" >> ~/.cdir_default
+        fi
+        echo $3 | grep -w "no_print" &>/dev/null || ls_format $(get_env_from_label $1 | head -n 1)
     fi
 }
 
