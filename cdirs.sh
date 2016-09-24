@@ -21,6 +21,25 @@ setdir() {
 }
 
 lsdir() {
+    opts=$(getopt -l "print:,help" -o "hp:" -- $@) || return -1
+    eval set -- ${opts}
+    while true
+    do
+        case "$1" in
+            -h|--help)
+                shift
+                ;;
+            -p|--print)
+                echo $(get_path $2)
+                return 0
+                ;;
+            --)
+                shift
+                break
+                ;;
+        esac
+    done
+
     _lsdir $@
 }
 
