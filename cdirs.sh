@@ -29,6 +29,21 @@ cldir() {
 }
 
 gmpy_init() {
+    opts=$(getopt -l "replace-cd,help" -o "h" -- $@)
+    eval set -- ${opts}
+    while [ "$#" -ne "0" ]
+    do
+        case "$1" in
+            --replace-cd)
+                alias cd="cdir"
+                shift
+                ;;
+            --)
+                shift
+                break
+        esac
+    done
+
     gmpy_cdir_prefix="gmpy_cdir"
     gmpy_cdir_initialized=0
     load_default_label
@@ -374,4 +389,4 @@ get_env_from_label() {
     [ $(echo ${env} | wc -l) -eq 1 ] && echo ${env}
 }
 
-gmpy_init
+gmpy_init $@
