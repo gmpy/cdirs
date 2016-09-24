@@ -150,17 +150,12 @@ get_absolute_path() {
 # _setdir <label> <path>
 _setdir() {
     if [ "$(is_exited_dir $2)" = "no" ]; then
-        echo no exited dir, worry path
-    fi
-
-    if [ ! "`check_type $1`" = "label" ] || [ ! "`check_type $2`" = "path" ]; then
-        echo "Usage: setdir <label> <path>"
-        return -1
+        echo -e "\033[31m$2 is not existed\033[0m"
     fi
 
     if [ "$(check_label $1)" = "no" ];then
-        echo -n "label error: "
-        echo "label is a combination of letters , numbers and character '_' , which is begin with letter"
+        echo -en "\033[31mlabel error: \033[0m"
+        echo "label start with a letter and is a combination of letters, numbers and _"
         return -1
     fi
 
