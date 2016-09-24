@@ -1,6 +1,7 @@
 #!/bin/bash
 
 cdir() {
+    load_default_label
     if [ "$#" -gt "1" ]; then
         echo "Usage: cdir <num|label|path>"
         return 0
@@ -12,6 +13,7 @@ cdir() {
 }
 
 setdir() {
+    load_default_label
     if [ $# -ne 2 ]; then
         echo "Usage: setdir <label> <path>"
         return -1
@@ -21,14 +23,31 @@ setdir() {
 }
 
 lsdir() {
+    load_default_label
     _lsdir $@
 }
 
 cldir() {
+    load_default_label
     _cldir $@
 }
 
 gmpy_cdir_prefix="gmpy_cdir"
+gmpy_cdir_initialized=0
+
+
+# load_default_label
+# load default label by ~/.cdir_default
+load_default_label() {
+    [ "${gmpy_cdir_initialized}" = "1" ] && return 0
+    [ ! -f ~/.cdir_default ] && return -1
+
+    for line in $(cat ~/.cdir_default | egrep -v "^#.*$|^$" | grep "=")
+    do
+         _setdir $(echo $line | sed "s/=/ /g") "no_print"
+    done
+    gmpy_cdir_initialized=1
+}
 
 # get_path <label|num|path>
 # echo the result
@@ -174,7 +193,8 @@ _setdir() {
     fi
 
     if [ -n "${path}" ] && [ -n "${var}" ]; then
-        set_env ${var} ${path} && ls_format $(get_env_from_label $1 | head -n 1)
+        set_env ${var} ${path}
+        [ "$?" -eq "0" -a -z "$3" ] && ls_format $(get_env_from_label $1 | head -n 1)
     fi
 }
 
