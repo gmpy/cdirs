@@ -25,7 +25,51 @@ lsdir() {
 }
 
 cldir() {
+    opts=$(getopt -l "all,reset,help" -o "ha" -- $@) || return -1
+    eval set -- ${opts}
+    while true
+    do
+        case "$1" in
+            -h|--help)
+                shift
+                ;;
+            --reset)
+                reset
+                return 0
+                ;;
+            -a|--all)
+                clear_all
+                return 0
+                ;;
+            --)
+                shift
+                break
+                ;;
+            *)
+                shift
+                ;;
+        esac
+    done
+
     _cldir $@
+}
+
+# reset
+# turn back to initial status
+reset() {
+    clear_all
+    load_default_label
+}
+
+# clear_all
+clear_all() {
+    for env in $(get_all_env)
+    do
+        clear_dir_from_num $(get_num_from_env ${env})
+    done
+
+    gmpy_cdir_initialized=0
+    gmpy_cdir_cnt=0
 }
 
 gmpy_init() {
