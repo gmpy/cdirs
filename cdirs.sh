@@ -308,7 +308,7 @@ _setdir() {
 
 # _cdir <label|num|path>
 _cdir() {
-    if [ "`is_exited_dir $1`" = "path" ]; then
+    if [ "`is_exited_dir $1`" = "yes" ]; then
         echo $1
         return 0
     fi
