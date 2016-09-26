@@ -7,7 +7,7 @@ cdir() {
     elif [ "$#" -eq "0" ]; then
         cd
     else
-        cd `_cdir $@`
+        cd `_cdir "$1"`
     fi
 }
 
@@ -162,7 +162,7 @@ get_path() {
         return -1
     fi
 
-    case "`check_type $1`" in
+    case "`check_type "$1"`" in
         "path")
             echo $1
             ;;
@@ -313,12 +313,12 @@ _setdir() {
 
 # _cdir <label|num|path>
 _cdir() {
-    if [ "`is_exited_dir $1`" = "yes" ]; then
+    if [ "`is_exited_dir "$1"`" = "yes" ]; then
         echo $1
         return 0
     fi
 
-    echo $(get_path $1)
+    echo $(get_path "$1")
 }
 
 # _lsdir [num1|label1|path1] [num2|label2|path2] ...
