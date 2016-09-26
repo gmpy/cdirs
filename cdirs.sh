@@ -100,7 +100,7 @@ cldir() {
 replace_cd() {
     local alias_cd=$(alias | grep "cd=.*$" | awk '{print $2}')
     [ -n "${alias_cd}" ] && unalias cd
-    cd "$1"
+    cd $1
     [ -n "${alias_cd}" ] && eval alias ${alias_cd}
 }
 
