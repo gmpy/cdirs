@@ -5,9 +5,9 @@ cdir() {
         echo -e "\033[31mUsage: cdir <num|label|path>\033[0m"
         return 0
     elif [ "$#" -eq "0" ]; then
-        cd
+        replace_cd
     else
-        cd `_cdir "$1"`
+        replace_cd `_cdir "$1"`
     fi
 }
 
@@ -94,6 +94,14 @@ cldir() {
     done
 
     _cldir $@
+}
+
+# replace_cd <path>
+replace_cd() {
+    alias_cd=$(alias | grep "cd=.*$" | awk '{print $2}')
+    [ -n "${alias_cd}" ] && unalias cd
+    cd "$1"
+    [ -n "${alias_cd}" ] && eval alias ${alias_cd}
 }
 
 # reset
