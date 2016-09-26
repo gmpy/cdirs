@@ -12,7 +12,7 @@ cdir() {
 }
 
 setdir() {
-    opts=$(getopt -l "global,help" -o "hg" -- $@) || return -1
+    local opts=$(getopt -l "global,help" -o "hg" -- $@) || return -1
     eval set -- ${opts}
     while true
     do
@@ -39,7 +39,7 @@ setdir() {
 }
 
 lsdir() {
-    opts=$(getopt -l "print:,help" -o "hp:" -- $@) || return -1
+    local opts=$(getopt -l "print:,help" -o "hp:" -- $@) || return -1
     eval set -- ${opts}
     while true
     do
@@ -62,7 +62,7 @@ lsdir() {
 }
 
 cldir() {
-    opts=$(getopt -l "all,reset,help,reload" -o "ha" -- $@) || return -1
+    local opts=$(getopt -l "all,reset,help,reload" -o "ha" -- $@) || return -1
     eval set -- ${opts}
     while true
     do
@@ -98,7 +98,7 @@ cldir() {
 
 # replace_cd <path>
 replace_cd() {
-    alias_cd=$(alias | grep "cd=.*$" | awk '{print $2}')
+    local alias_cd=$(alias | grep "cd=.*$" | awk '{print $2}')
     [ -n "${alias_cd}" ] && unalias cd
     cd "$1"
     [ -n "${alias_cd}" ] && eval alias ${alias_cd}
@@ -123,7 +123,7 @@ clear_all() {
 }
 
 gmpy_init() {
-    opts=$(getopt -l "replace-cd,help" -o "h" -- $@) || return -1
+    local opts=$(getopt -l "replace-cd,help" -o "h" -- $@) || return -1
     eval set -- ${opts}
     while true
     do
@@ -190,13 +190,13 @@ check_label() {
 
 # get_path_from_num <num>
 get_path_from_num() {
-    var=$(get_env_from_num $1 | head -n 1)
+    local var=$(get_env_from_num $1 | head -n 1)
     [ -n "${var}" ] && echo $(get_path_from_env ${var})
 }
 
 # get_path_from_label <label>
 get_path_from_label() {
-    var=$(get_env_from_label $1 | head -n 1)
+    local var=$(get_env_from_label $1 | head -n 1)
     [ -n "${var}" ] && echo $(get_path_from_env ${var}) || echo $1
 }
 
