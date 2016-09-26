@@ -62,7 +62,7 @@ lsdir() {
 }
 
 cldir() {
-    opts=$(getopt -l "all,reset,help" -o "ha" -- $@) || return -1
+    opts=$(getopt -l "all,reset,help,reload" -o "ha" -- $@) || return -1
     eval set -- ${opts}
     while true
     do
@@ -72,6 +72,11 @@ cldir() {
                 ;;
             --reset)
                 reset
+                return 0
+                ;;
+            --reload)
+                gmpy_cdir_initialized=0
+                load_default_label
                 return 0
                 ;;
             -a|--all)
