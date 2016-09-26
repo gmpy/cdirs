@@ -246,46 +246,54 @@ set_env() {
 
 # get_absolute_path <path>
 get_absolute_path() {
-    local path="${PWD}"
-    local path_tmp=$1
+    local pwd_path="${PWD}"
+    local para_path="$1"
 
-    if [ "$1" = "-" ]; then
+    # deal with word like - ~ . ..
+    if [ "${para_path}" = "-" ]; then
         echo "${OLDPWD}"
         return 0
-    elif [ "$1" = "." ]; then
+    elif [ "${para_path}" = "." ]; then
         echo "${PWD}"
         return 0
-    elif [ "$1" = ".." ]; then
+    elif [ "${para_path}" = ".." ]; then
         echo "${PWD%/*}"
         return 0
-    elif [ "$1" = "~" ]; then
+    elif [ "${para_path}" = "~" ]; then
         echo "${HOME}"
         return 0
+    elif [ "${para_path:0:1}" = "~" ]; then
+        para_path="${HOME}${para_path:1}"
     fi
 
-    while [ -n "$(echo ${path_tmp} | egrep "\./|\.\./")" ]
+
+    # deal with word like ./ ../
+    while [ -n "$(echo ${para_path} | egrep "\./|\.\./")" ]
     do
-        if [ "${path_tmp%%/*}" = ".." ]; then
-            path=${path%/*}
-        elif [ ! "${path_tmp%%/*}" = "." ]; then
-            path="${path}/${path_tmp%%/*}"
+        if [ "${para_path%%/*}" = ".." ]; then
+            pwd_path=${pwd_path%/*}
+        elif [ ! "${para_path%%/*}" = "." ]; then
+            pwd_path="${pwd_path}/${para_path%%/*}"
         fi
-        path_tmp="${path_tmp#*/}"
+        pwd_path="${para_path#*/}"
     done
 
-    if [ ! "${path_tmp}" = "$1" ]; then
-        echo "${path}/${path_tmp}"
-    elif [ -d $1 ] && [ ! "${1:0:1}" = "/" ]; then
-        echo ${PWD}/$1
+    if [ ! "${pwd_path}" = "${PWD}" ]; then
+        echo "${pwd_path}/${para_path}"
+    elif [ -d ${para_path} ] && [ ! "${para_path:0:1}" = "/" ]; then
+        echo ${PWD}/${para_path}
     else
-        echo $1
+        echo ${para_path}
     fi
 }
 
 # _setdir <label> <path> [no_print|global]
 # $3 can be that no_print,global
 _setdir() {
-    if [ "$(is_exited_dir $2)" = "no" ]; then
+    #get path
+    local path=$(get_absolute_path $2)
+
+    if [ "$(is_exited_dir ${path})" = "no" ]; then
         echo -e "\033[31m$2 is not existed\033[0m"
     fi
 
@@ -295,8 +303,6 @@ _setdir() {
         return -1
     fi
 
-    #get path
-    local path=$(get_absolute_path $2)
 
     #get var
     local var=$(get_env_from_label $1 | head -n 1)
