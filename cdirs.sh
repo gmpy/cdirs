@@ -160,13 +160,15 @@ complete_func() {
     local word=${COMP_WORDS[COMP_CWORD]}
     local line=${COMP_LINE}
     local labels
+    local opts_cnt
 
     case ${cmd} in
         cldir|lsdir)
             labels=$(get_all_label)
             ;;
         setdir)
-            [ "${COMP_CWORD}" -eq "1" ] && labels=$(get_all_label)
+            opts_cnt=$(echo ${line} | sed -r 's/[^-][[:alpha:]]+//g' | wc -w)
+            [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && labels=$(get_all_label)
             ;;
         cd|cdir)
             [ "${COMP_CWORD}" -eq "1" ] && labels=$(get_all_label)
