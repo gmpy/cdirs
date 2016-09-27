@@ -1,13 +1,40 @@
 #!/bin/bash
 
 cdir() {
+    local force_type
+    local opts=$(getopt -l "num,label,path,help" -o "hnlp" -- $@) || return -1
+    eval set -- ${opts}
+    while true
+    do
+        case "$1" in
+            -h|--help)
+                shift
+                ;;
+            -l|--label)
+                force_type="label"
+                shift
+                ;;
+            -n|--num)
+                force_type="num"
+                shift
+                ;;
+            -p|--path)
+                force_type="path"
+                shift
+                ;;
+            --)
+                shift
+                break
+        esac
+    done
+
     if [ "$#" -gt "1" ]; then
         echo -e "\033[31mUsage: cdir <num|label|path>\033[0m"
         return 0
     elif [ "$#" -eq "0" ]; then
         replace_cd
     else
-        replace_cd `_cdir "$1"`
+        replace_cd `_cdir "$1" ${force_type}`
     fi
 }
 
@@ -186,22 +213,44 @@ complete_func() {
     local cmd="${1##*/}"
     local word=${COMP_WORDS[COMP_CWORD]}
     local line=${COMP_LINE}
-    local labels
+    local complete_list
     local opts_cnt
 
     case ${cmd} in
         cldir|lsdir)
-            labels=$(get_all_label)
+            complete_list=$(get_all_label)
             ;;
         setdir)
             opts_cnt=$(echo ${line} | sed -r 's/[^-][[:alpha:]]+//g' | wc -w)
-            [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && labels=$(get_all_label)
+            [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list=$(get_all_label)
             ;;
         cd|cdir)
-            [ "${COMP_CWORD}" -eq "1" ] && labels=$(get_all_label)
+            case ${COMP_WORDS[$(( ${COMP_CWORD} - 1 ))]} in
+                "-l"|"--label")
+                    complete_list=$(get_all_label)
+                    ;;
+                "-n"|"--num")
+                    complete_list=$(get_all_num)
+                    ;;
+                "-p"|"--path")
+                    complete_list=
+                    ;;
+                *)
+                    opts_cnt=$(echo ${line} | sed -r 's/[^-][[:alpha:]]+//g' | wc -w)
+                    [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list=$(get_all_label)
+                    ;;
+            esac
             ;;
     esac
-    COMPREPLY=($(compgen -W "${labels}" -- "${word}"))
+    COMPREPLY=($(compgen -W "${complete_list}" -- "${word}"))
+}
+
+# get_all_num
+get_all_num() {
+    for env in $(get_all_env)
+    do
+        echo -n "$(get_num_from_env ${env}) "
+    done
 }
 
 # get_all_label
@@ -225,24 +274,34 @@ load_default_label() {
     gmpy_cdir_initialized=1
 }
 
-# get_path <label|num|path>
+# get_path <label|num|path> [num|label|path](point out the type)
 # echo the result
 get_path() {
-    if [ $# -ne 1 ]; then
-        return -1
+    if [ -n "$2" ]; then
+        case "$2" in
+            "path")
+                echo $1
+                ;;
+            "num")
+                echo $(get_path_from_num $1)
+                ;;
+            "label")
+                [ "$(check_label $1)" = "yes" ] && echo $(get_path_from_label $1) || echo $1
+                ;;
+        esac
+    else
+        case "`check_type "$1"`" in
+            "path")
+                echo $1
+                ;;
+            "num")
+                echo $(get_path_from_num $1)
+                ;;
+            "label")
+                [ "$(check_label $1)" = "yes" ] && echo $(get_path_from_label $1) || echo $1
+                ;;
+        esac
     fi
-
-    case "`check_type "$1"`" in
-        "path")
-            echo $1
-            ;;
-        "num")
-            echo $(get_path_from_num $1)
-            ;;
-        "label")
-            [ "$(check_label $1)" = "yes" ] && echo $(get_path_from_label $1) || echo $1
-            ;;
-    esac
 }
 
 # check_label <label>
@@ -403,14 +462,18 @@ set_dir_defalut() {
     echo "$1=${path}" >> ~/.cdir_default
 }
 
-# _cdir <label|num|path>
+# _cdir <label|num|path> [num|label|path](point out the type)
 _cdir() {
-    if [ "`is_exited_dir "$1"`" = "yes" ]; then
-        echo $1
-        return 0
-    fi
+    if [ -n "$2" ]; then
+        echo $(get_path "$1" "$2")
+    else
+        if [ "`is_exited_dir "$1"`" = "yes" ]; then
+            echo $1
+            return 0
+        fi
 
-    echo $(get_path "$1")
+        echo $(get_path "$1")
+    fi
 }
 
 # _lsdir [num1|label1|path1] [num2|label2|path2] ...
