@@ -63,7 +63,8 @@ lsdir() {
 }
 
 cldir() {
-    local opts=$(getopt -l "all,reset,help,reload" -o "ha" -- $@) || return -1
+    local opts=$(getopt -l "all,reset,help,reload,global" -o "gha" -- $@) || return -1
+    local global_flag=0
     eval set -- ${opts}
     while true
     do
@@ -84,6 +85,10 @@ cldir() {
                 clear_all
                 return 0
                 ;;
+            -g|--global)
+                shift
+                global_flag=1
+                ;;
             --)
                 shift
                 break
@@ -94,7 +99,29 @@ cldir() {
         esac
     done
 
+    if [ "${global_flag}" -eq "1" ]; then
+        for (( num=1; num<=${#}; num++ ))
+        do
+            clear_global_dir $(eval echo "\$${num}")
+        done
+    fi
     _cldir $@
+}
+
+# clear_global_dir <num|dir|path>
+clear_global_dir() {
+    case "$(check_type $1)" in
+        num)
+            clear_global_dir_from_label $(get_label_from_env $(get_env_from_num $1))
+            ;;
+        label)
+            clear_global_dir_from_label $1
+            ;;
+        path)
+            local path=$(get_absolute_path $1)
+            clear_global_dir_from_label $(get_label_from_env $(get_env_from_path ${path}))
+            ;;
+    esac
 }
 
 # replace_cd <path>
@@ -353,11 +380,27 @@ _setdir() {
     if [ -n "${path}" ] && [ -n "${var}" ]; then
         set_env ${var} ${path}
         if echo $3 | grep -w "global" &>/dev/null; then
-            sed -i "/^$1=.*$/d" ~/.cdir_default
-            echo "$1=${path}" >> ~/.cdir_default
+            clear_global_dir_from_label "$1"
+            set_dir_defalut "$1" "${path}"
         fi
         echo $3 | grep -w "no_print" &>/dev/null || ls_format $(get_env_from_label $1 | head -n 1)
     fi
+}
+
+# clear_global_dir_from_label <label1> <label2> ...
+# enable more than one parameters
+clear_global_dir_from_label() {
+    local label
+    for (( num=1; num<=$# ; num++ ))
+    do
+        label=$(eval echo \$${num})
+        sed -i "/^${label}=.*$/d" ~/.cdir_default
+    done
+}
+
+# set_dir_defalut <label> <path>
+set_dir_defalut() {
+    echo "$1=${path}" >> ~/.cdir_default
 }
 
 # _cdir <label|num|path>
@@ -451,14 +494,19 @@ get_num_from_env() {
 }
 
 # get_label_from_env <gmpy_cdir_num_label=path>
+# enable more than one perematers
 get_label_from_env() {
     local label
-    label=${1#*_}
-    label=${label#*_}
-    label=${label#*_}
-    label=${label%%=*}
+    for (( num=1; num<=$# ; num++ ))
+    do
+        label=$(eval echo \$${num})
+        label=${label#*_}
+        label=${label#*_}
+        label=${label#*_}
+        label=${label%%=*}
 
-    echo ${label}
+        echo -n "${label} "
+    done
 }
 
 # get_path_from_env <gmpy_cdir_num_label=path>
@@ -466,7 +514,7 @@ get_path_from_env() {
     echo ${1##*=}
 }
 
-# _cldir <num|label|path>
+# _cldir <num1|label1|path1> <num2|label2|path2> ...
 _cldir() {
     if [ $# -lt 1 ]; then
         echo "Usage: cldir <num1|label1|path1> <num2|label2|path2> ..."
