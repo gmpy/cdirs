@@ -277,31 +277,20 @@ load_default_label() {
 # get_path <label|num|path> [num|label|path](point out the type)
 # echo the result
 get_path() {
-    if [ -n "$2" ]; then
-        case "$2" in
-            "path")
-                echo $1
-                ;;
-            "num")
-                echo $(get_path_from_num $1)
-                ;;
-            "label")
-                [ "$(check_label $1)" = "yes" ] && echo $(get_path_from_label $1) || echo $1
-                ;;
-        esac
-    else
-        case "`check_type "$1"`" in
-            "path")
-                echo $1
-                ;;
-            "num")
-                echo $(get_path_from_num $1)
-                ;;
-            "label")
-                [ "$(check_label $1)" = "yes" ] && echo $(get_path_from_label $1) || echo $1
-                ;;
-        esac
-    fi
+    local path
+    case "$([ -n "$2" ] && echo $2 || check_type "$1")" in
+        "path")
+            path="$1"
+            ;;
+        "num")
+            path=$(get_path_from_num $1)
+            ;;
+        "label")
+            [ "$(check_label $1)" = "yes" ] && path=$(get_path_from_label $1)
+            ;;
+    esac
+
+    [ -n "${path}" ] && echo ${path} || echo $1
 }
 
 # check_label <label>
