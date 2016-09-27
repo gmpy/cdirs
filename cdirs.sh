@@ -148,6 +148,38 @@ gmpy_init() {
     gmpy_cdir_prefix="gmpy_cdir"
     gmpy_cdir_initialized=0
     load_default_label
+
+    complete -F complete_func -o dirnames "cdir" "setdir" "lsdir" "cldir" "$([ "$(type -t cd)" = "alias" ] && echo "cd")"
+
+}
+
+# complete_func <input>
+complete_func() {
+    local cmd="${1##*/}"
+    local word=${COMP_WORDS[COMP_CWORD]}
+    local line=${COMP_LINE}
+    local labels
+
+    case ${cmd} in
+        cldir|lsdir)
+            labels=$(get_all_label)
+            ;;
+        setdir)
+            [ "${COMP_CWORD}" -eq "1" ] && labels=$(get_all_label)
+            ;;
+        cd|cdir)
+            [ "${COMP_CWORD}" -eq "1" ] && labels=$(get_all_label)
+            ;;
+    esac
+    COMPREPLY=($(compgen -W "${labels}" -- "${word}"))
+}
+
+# get_all_label
+get_all_label() {
+    for env in $(get_all_env)
+    do
+        echo -n "$(get_label_from_env ${env}) "
+    done
 }
 
 # load_default_label
