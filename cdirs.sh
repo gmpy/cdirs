@@ -396,7 +396,7 @@ get_absolute_path() {
         elif [ ! "${para_path%%/*}" = "." ]; then
             pwd_path="${pwd_path}/${para_path%%/*}"
         fi
-        pwd_path="${para_path#*/}"
+        para_path="${para_path#*/}"
     done
 
     if [ ! "${pwd_path}" = "${PWD}" ]; then
