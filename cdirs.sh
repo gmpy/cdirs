@@ -48,7 +48,8 @@ lsdir() {
                 shift
                 ;;
             -p|--print)
-                echo $(get_path $2)
+                local path="$(get_path $2)"
+                echo ${path} | grep "^.*/$" &>/dev/null && echo ${path%/*} || echo ${path}
                 return 0
                 ;;
             --)
