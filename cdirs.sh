@@ -174,7 +174,7 @@ clear_all() {
     do
         clear_dir_from_num "$(get_num_from_env "${env}")"
     done
-    IFS="${IFS}"
+    IFS="${oIFS}"
 
     gmpy_cdir_initialized=0
     gmpy_cdir_cnt=0
