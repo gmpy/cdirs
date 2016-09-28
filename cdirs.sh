@@ -29,8 +29,7 @@ cdir() {
     done
 
     if [ "$#" -gt "1" ]; then
-        echo -e "\033[31mUsage: cdir <num|label|path>\033[0m"
-        return 0
+        replace_cd "$*"
     elif [ "$#" -eq "0" ]; then
         replace_cd
     else
@@ -155,7 +154,9 @@ clear_global_dir() {
 replace_cd() {
     local alias_cd=$(alias | grep "cd=.*$" | awk '{print $2}')
     [ -n "${alias_cd}" ] && unalias cd
-    [ "$(type -t cd)" = "builtin" ] && cd $1
+    if [ "$(type -t cd)" = "builtin" ]; then
+        [ -n "$*" ] && cd "$*" || cd
+    fi
     [ -n "${alias_cd}" ] && eval alias ${alias_cd}
 }
 
