@@ -170,7 +170,7 @@ reset() {
 clear_all() {
     local oIFS="${IFS}"
     IFS=$'\n'
-    for env in "$(get_all_env)"
+    for env in $(get_all_env)
     do
         clear_dir_from_num "$(get_num_from_env "${env}")"
     done
