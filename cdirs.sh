@@ -225,7 +225,7 @@ complete_func() {
             complete_list="$(get_all_label)"
             ;;
         setdir)
-            opts_cnt="$(echo "${line}" | sed -r 's/[^-][[:alpha:]]+//g' | wc -w)"
+            opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
             [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(get_all_label)"
             ;;
         cd|cdir)
@@ -240,7 +240,7 @@ complete_func() {
                     complete_list=
                     ;;
                 *)
-                    opts_cnt="$(echo ${line} | sed -r 's/[^-][[:alpha:]]+//g' | wc -w)"
+                    opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
                     [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(get_all_label)"
                     ;;
             esac
