@@ -555,7 +555,7 @@ ls_format() {
     local path="$(get_path_from_env "$1")"
 
     if [ -n "${num}" ] && [ -n "${label}" ] && [ -n "${path}" ]; then
-        echo -e "\033[32m${num})\t${label}\t\t${path}\033[0m"
+        printf '\033[32m%d)\t%-16s\t%s\033[0m\n' "${num}" "${label}" "${path}"
     fi
 }
 
