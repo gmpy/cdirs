@@ -406,6 +406,7 @@ _setdir() {
 
     if [ "$(is_exited_dir ${path})" = "no" ]; then
         echo -e "\033[31m$2 is not existed\033[0m"
+        return -1
     fi
 
     if [ "$(check_label $1)" = "no" ];then
