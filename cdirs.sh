@@ -163,6 +163,7 @@ replace_cd() {
 # turn back to initial status
 reset() {
     clear_all
+    echo "-----------"
     load_default_label
 }
 
@@ -205,7 +206,7 @@ gmpy_init() {
 
     gmpy_cdir_prefix="gmpy_cdir"
     gmpy_cdir_initialized=0
-    load_default_label
+    load_default_label "no_print"
 
     complete -F complete_func -o dirnames "cdir" "setdir" "lsdir" "cldir" "$([ "$(type -t cd)" = "alias" ] && echo "cd")"
 
@@ -270,7 +271,7 @@ get_all_label() {
     local IFS="${oIFS}"
 }
 
-# load_default_label
+# load_default_label [no_print]
 # load default label by ~/.cdir_default
 load_default_label() {
     [ "${gmpy_cdir_initialized}" = "1" ] && return 0
@@ -281,7 +282,7 @@ load_default_label() {
     for line in $(cat ~/.cdir_default | egrep -v "^#.*$|^$" | grep "=")
     do
         IFS="${oIFS}"
-         _setdir $(echo "$line" | sed "s/=/ /g") "no_print"
+         _setdir $(echo "$line" | sed "s/=/ /g") "$1"
         IFS=$'\n'
     done
     IFS="${oIFS}"
