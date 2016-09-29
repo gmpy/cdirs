@@ -569,7 +569,7 @@ _setdir() {
 clear_global_dir_from_label() {
     local label
 
-    [ ! -f "~/.cdir_default" ] && return 2
+    [ ! -f ~/.cdir_default ] && return 2
 
     for (( num=1; num<=$# ; num++ ))
     do
