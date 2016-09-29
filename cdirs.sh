@@ -391,6 +391,8 @@ get_absolute_path() {
         para_path="${HOME}${para_path:1}"
     fi
 
+    # delete last letter /
+    para_path=$(echo "${para_path}" | sed 's/\(.*\)\/$/\1/g')
 
     # deal with word like ./ ../
     while [ -n "$(echo "${para_path}" | egrep "\./|\.\./")" ]
