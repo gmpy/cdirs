@@ -59,6 +59,7 @@ cdir() {
 }
 
 setdir() {
+    local global_flag=0
     local opts="$(getopt -l "${setdir_options_list_full}" -o "${setdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
     while true
@@ -69,8 +70,8 @@ setdir() {
                 return 0
                 ;;
             -g|--global)
-                _setdir "$(eval "echo \$$(( $# - 1 ))")" "$(eval "echo \$$#")" "global"
-                return 0
+                global_flag=1
+                shift
                 ;;
             --)
                 shift
@@ -79,9 +80,9 @@ setdir() {
     done
 
     if [ "$#" -ne "2" ]; then
-        _setdir "$1" "$(shift;echo "$*")"
+        _setdir "$1" "$(shift;echo "$*")" "$([ "${global_flag}" -eq "1" ] && echo global)"
     else
-        _setdir $@
+        _setdir $@ "$([ "${global_flag}" -eq "1" ] && echo global)"
     fi
 }
 
