@@ -154,7 +154,11 @@ replace_cd() {
     local alias_cd="$(alias | grep "cd=.*$" | awk '{print $2}')"
     [ -n "${alias_cd}" ] && unalias cd
     if [ "$(type -t cd)" = "builtin" ]; then
-        [ -n "$*" ] && cd "$*" || cd
+        if [ -n "$*" ]; then
+            cd "$*"
+        else
+            cd
+        fi
     fi
     [ -n "${alias_cd}" ] && eval alias "${alias_cd}"
 }
