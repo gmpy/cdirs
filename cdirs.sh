@@ -1,8 +1,19 @@
 #!/bin/bash
 
+cdir_options_list="hnlp"
+lsdir_options_list="hp:"
+cldir_options_list="gha"
+setdir_options_list="hg"
+
+cdir_options_list_full="reload,reset,num,label,path,help"
+lsdir_options_list_full="print:,help"
+cldir_options_list_full="all,reset,help,reload,global"
+setdir_options_list_full="global,help"
+gmpy_init_options_list_full="replace-cd,help"
+
 cdir() {
     local force_type
-    local opts="$(getopt -l "reload,reset,num,label,path,help" -o "hnlp" -- $@)" || return 1
+    local opts="$(getopt -l "${cdir_options_list_full}" -o "${cdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -47,7 +58,7 @@ cdir() {
 }
 
 setdir() {
-    local opts="$(getopt -l "global,help" -o "hg" -- $@)" || return 1
+    local opts="$(getopt -l "${setdir_options_list_full}" -o "${setdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -73,7 +84,7 @@ setdir() {
 }
 
 lsdir() {
-    local opts="$(getopt -l "print:,help" -o "hp:" -- $@)" || return 1
+    local opts="$(getopt -l "${lsdir_options_list_full}" -o "${lsdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -97,7 +108,7 @@ lsdir() {
 }
 
 cldir() {
-    local opts="$(getopt -l "all,reset,help,reload,global" -o "gha" -- $@)" || return 1
+    local opts="$(getopt -l "${cldir_options_list_full}" -o "${cldir_options_list}" -- $@)" || return 1
     local global_flag=0
     eval set -- "${opts}"
     while true
@@ -195,7 +206,7 @@ clear_all() {
 }
 
 gmpy_init() {
-    local opts="$(getopt -l "replace-cd,help" -o "h" -- $@)" || return 1
+    local opts="$(getopt -l "${gmpy_init_options_list_full}" -o "h" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -235,28 +246,46 @@ complete_func() {
 
     case "${cmd}" in
         cldir|lsdir)
-            complete_list="$(get_all_label)"
+            if [ "${word:0:2}" = "--" ]; then
+                complete_list="--$(eval "echo \"\${${cmd}_options_list_full}\" | sed 's/,/ --/g' | sed 's/://g'")"
+            elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
+                complete_list="$(eval "echo \"\${${cmd}_options_list}\" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g'")"
+            else
+                complete_list="$(get_all_label)"
+            fi
             ;;
         setdir)
-            opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
-            [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(get_all_label)"
+            if [ "${word:0:2}" = "--" ]; then
+                complete_list="--$(eval "echo \"\${${cmd}_options_list_full}\" | sed 's/,/ --/g' | sed 's/://g'")"
+            elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
+                complete_list="$(eval "echo \"\${${cmd}_options_list}\" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g'")"
+            else
+                opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
+                [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(get_all_label)"
+            fi
             ;;
         cd|cdir)
-            case "${COMP_WORDS[$(( ${COMP_CWORD} - 1 ))]}" in
-                "-l"|"--label")
-                    complete_list="$(get_all_label)"
-                    ;;
-                "-n"|"--num")
-                    complete_list="$(get_all_num)"
-                    ;;
-                "-p"|"--path")
-                    complete_list=
-                    ;;
-                *)
-                    opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
-                    [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(get_all_label)"
-                    ;;
-            esac
+            if [ "${word:0:2}" = "--" ]; then
+                complete_list="--$(echo "${cdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
+            elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
+                complete_list="$(echo "${cdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
+            else
+                case "${COMP_WORDS[$(( ${COMP_CWORD} - 1 ))]}" in
+                    "-l"|"--label")
+                        complete_list="$(get_all_label)"
+                        ;;
+                    "-n"|"--num")
+                        complete_list="$(get_all_num)"
+                        ;;
+                    "-p"|"--path")
+                        complete_list=
+                        ;;
+                    *)
+                        opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ --?[[:alpha:]]+ / /g' | wc -w) ))"
+                        [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(get_all_label)"
+                        ;;
+                esac
+            fi
             ;;
     esac
     COMPREPLY=($(compgen -W "${complete_list}" -- "${word}"))
