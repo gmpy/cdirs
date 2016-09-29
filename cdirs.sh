@@ -2,7 +2,7 @@
 
 cdir() {
     local force_type
-    local opts="$(getopt -l "num,label,path,help" -o "hnlp" -- $@)" || return -1
+    local opts="$(getopt -l "num,label,path,help" -o "hnlp" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -38,7 +38,7 @@ cdir() {
 }
 
 setdir() {
-    local opts="$(getopt -l "global,help" -o "hg" -- $@)" || return -1
+    local opts="$(getopt -l "global,help" -o "hg" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -64,7 +64,7 @@ setdir() {
 }
 
 lsdir() {
-    local opts="$(getopt -l "print:,help" -o "hp:" -- $@)" || return -1
+    local opts="$(getopt -l "print:,help" -o "hp:" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -88,7 +88,7 @@ lsdir() {
 }
 
 cldir() {
-    local opts="$(getopt -l "all,reset,help,reload,global" -o "gha" -- $@)" || return -1
+    local opts="$(getopt -l "all,reset,help,reload,global" -o "gha" -- $@)" || return 1
     local global_flag=0
     eval set -- "${opts}"
     while true
@@ -182,7 +182,7 @@ clear_all() {
 }
 
 gmpy_init() {
-    local opts="$(getopt -l "replace-cd,help" -o "h" -- $@)" || return -1
+    local opts="$(getopt -l "replace-cd,help" -o "h" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -275,7 +275,7 @@ get_all_label() {
 # load default label by ~/.cdir_default
 load_default_label() {
     [ "${gmpy_cdir_initialized}" = "1" ] && return 0
-    [ ! -f ~/.cdir_default ] && return -1
+    [ ! -f ~/.cdir_default ] && return 2
 
     local oIFS="${IFS}"
     IFS=$'\n'
@@ -344,7 +344,7 @@ is_exited_dir() {
 # label: other else
 check_type() {
     if [ "$#" -ne "1" ]; then
-        return -1
+        return 1
     fi
 
     if $(echo "$1" | egrep "^[0-9]+$" &>/dev/null); then
@@ -420,13 +420,13 @@ _setdir() {
 
     if [ "$(is_exited_dir "${path}")" = "no" ]; then
         echo -e "\033[31m${path} is not existed\033[0m"
-        return -1
+        return 2
     fi
 
     if [ "$(check_label "$1")" = "no" ];then
         echo -en "\033[31mlabel error: \033[0m"
         echo "label start with a letter and is a combination of letters, numbers and _"
-        return -1
+        return 1
     fi
 
 
@@ -456,7 +456,7 @@ _setdir() {
 clear_global_dir_from_label() {
     local label
 
-    [ ! -f "~/.cdir_default" ] && return 1
+    [ ! -f "~/.cdir_default" ] && return 2
 
     for (( num=1; num<=$# ; num++ ))
     do
@@ -551,7 +551,7 @@ ls_one_dir() {
 # ls_format <env>
 ls_format() {
     if [ ! "${1:0:9}" = "${gmpy_cdir_prefix}" ]; then 
-        return -1
+        return 1
     fi
     
     local num="$(get_num_from_env "$1")"
@@ -598,7 +598,7 @@ get_path_from_env() {
 _cldir() {
     if [ $# -lt 1 ]; then
         echo "Usage: cldir <num1|label1|path1> <num2|label2|path2> ..."
-        return -1
+        return 1
     fi
 
     for para in $@
