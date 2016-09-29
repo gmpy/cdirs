@@ -2,7 +2,7 @@
 
 cdir() {
     local force_type
-    local opts="$(getopt -l "num,label,path,help" -o "hnlp" -- $@)" || return 1
+    local opts="$(getopt -l "reload,reset,num,label,path,help" -o "hnlp" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -21,6 +21,15 @@ cdir() {
             -p|--path)
                 force_type="path"
                 shift
+                ;;
+            --reload)
+                gmpy_cdir_initialized=0
+                load_default_label
+                return 0
+                ;;
+            --reset)
+                reset
+                return 0
                 ;;
             --)
                 shift
