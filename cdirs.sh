@@ -455,6 +455,9 @@ _setdir() {
 # enable more than one parameters
 clear_global_dir_from_label() {
     local label
+
+    [ ! -f "~/.cdir_default" ] && return 1
+
     for (( num=1; num<=$# ; num++ ))
     do
         label="$(eval echo \$${num})"
