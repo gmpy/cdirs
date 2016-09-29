@@ -394,7 +394,7 @@ load_default_label() {
     for line in $(cat ~/.cdir_default | egrep -v "^#.*$|^$" | grep "=")
     do
         IFS="${oIFS}"
-         _setdir $(echo "$line" | sed "s/=/ /g") "$1"
+        _setdir "${line%%=*}" "${line##*=}" "$1"
         IFS=$'\n'
     done
     IFS="${oIFS}"
