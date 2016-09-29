@@ -19,7 +19,8 @@ cdir() {
     do
         case "$1" in
             -h|--help)
-                shift
+                print_help "cdir"
+                return 0
                 ;;
             -l|--label)
                 force_type="label"
@@ -64,7 +65,8 @@ setdir() {
     do
         case "$1" in
             -h|--help)
-                shift
+                print_help "setdir"
+                return 0
                 ;;
             -g|--global)
                 _setdir "$(eval "echo \$$(( $# - 1 ))")" "$(eval "echo \$$#")" "global"
@@ -90,7 +92,8 @@ lsdir() {
     do
         case "$1" in
             -h|--help)
-                shift
+                print_help "lsdir"
+                return 0
                 ;;
             -p|--print)
                 local path="$(get_path $2)"
@@ -115,7 +118,8 @@ cldir() {
     do
         case "$1" in
             -h|--help)
-                shift
+                print_help "cldir"
+                return 0
                 ;;
             --reset)
                 reset
@@ -151,6 +155,71 @@ cldir() {
         done
     fi
     _cldir $@
+}
+
+# print_help <cdir|lsdir|setdir|cldir>
+print_help() {
+    case "$1" in
+        cdir)
+            echo -e "\033[33mcdir [-h|--help] [-n|--num] [-l|--label] [-p|--path] [--reload] [--reset] <num|label|path>\033[0m"
+            echo "--------------"
+            echo -e "\033[32mcdir <num|label|path> :\033[0m"
+            echo -e "    cd to path that pointed out by num|label|path\n"
+            echo -e "\033[32mcdir [-h|--help] :\033[0m"
+            echo -e "    show this introduction\n"
+            echo -e "\033[32mcdir [-n|--num] <parameter> :\033[0m"
+            echo -e "    describe parameter as num mandatorily\n"
+            echo -e "\033[32mcdir [-l|--label] <parameter> :\033[0m"
+            echo -e "    describe parameter as label mandatorily\n"
+            echo -e "\033[32mcdir [-p|--path] <parameter> :\033[0m"
+            echo -e "    describe parameter as path mandatorily\n"
+            echo -e "\033[32mcdir [--reload] :\033[0m"
+            echo -e "    reload ~/.cdir_default, which record the static label-path\n"
+            echo -e "\033[32mcdir [--reset] :\033[0m"
+            echo -e "    clear all label-path and reload ~/.cdir_default, which record the static label-path\n"
+            echo -e "\033[31mNote: cdir is a superset of cd, so you can use it as cd too (In fact, my support for this scripts is to replace cd)\033[0m"
+            ;;
+        setdir)
+            echo -e "\033[33msetdir [-h|--help] [-g|--global] <label> <path>\033[0m"
+            echo "--------------"
+            echo -e "\033[32msetdir <label> <path> :\033[0m"
+            echo -e "    set label to path, after that, you can use \"cdir label\" or \"cdir num\" to go to path (the num is setted by system and you can see by command \"lsdir\""
+            echo -e "    moreover, path strings is support characters like . or .. or ~ or -"
+            echo -e "    eg. \"setdir work .\" or \"setdir cdirs ~/cdirs\" or \"setdir last_dir -\" or others\n"
+            echo -e "\033[32msetdir [-h|--help] :\033[0m"
+            echo -e "    show this introduction\n"
+            echo -e "\033[32msetdir [-g|--gloabl] <label> <path> :\033[0m"
+            echo -e "    set label to path, moreover, record it in ~/.cdir_default. In this way, you can set this label-path automatically everytimes you run a terminal\n"
+            echo -e "\033[31mNote: label starts with a letter and is a combination of letters, character _ and number\033[0m"
+            ;;
+        cldir)
+            echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] [--reset] [--reload] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+            echo "--------------"
+            echo -e "\033[32mcldir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
+            echo -e "    clear the label-path. if path, clear all label-path matching this path; if label, it supports regular expression\n"
+            echo -e "\033[32mcldir [-h|--help] :\033[0m"
+            echo -e "    show this introduction\n"
+            echo -e "\033[32mcldir [-g|--gloabl] <num|label|path> :\033[0m"
+            echo -e "    unset label to path, moreover, delete it in ~/.cdir_default. see also setdir -h|--hlep\n"
+            echo -e "\033[32mcldir [-a|--all] :\033[0m"
+            echo -e "    clear all label-path\n"
+            echo -e "\033[32mcldir [--reset] :\033[0m"
+            echo -e "    clear all label-path and reload ~/.cdir_default, which record the static label-path\n"
+            echo -e "\033[32mcldir [--reload] :\033[0m"
+            echo -e "    reload ~/.cdir_default, which record the static label-path"
+            ;;
+        lsdir)
+            echo -e "\033[33mlsdir [-h|--help] [-p|--print <num|label|path>] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+            echo "--------------"
+            echo -e "\033[32mlsdir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
+            echo -e "    list the label-path. if path, list all label-path matching this path; if label, it supports regular expression\n"
+            echo -e "\033[32mlsdir [-h|--help] :\033[0m"
+            echo -e "    show this introduction\n"
+            echo -e "\033[32mlsdir [-p|--print <num|label|path>] :\033[0m"
+            echo -e "    only print path of label-path, which is usefull to embedded in other commands"
+            echo -e "    eg. cat \`lsdir -p cdirs\`/readme.txt => cat /home/user/cdirs/readme.txt"
+            ;;
+    esac
 }
 
 # clear_global_dir <num|dir|path>
@@ -469,7 +538,7 @@ _setdir() {
 
     if [ "$(check_label "$1")" = "no" ];then
         echo -en "\033[31mlabel error: \033[0m"
-        echo "label start with a letter and is a combination of letters, numbers and _"
+        echo "label starts with a letter and is a combination of letters, numbers and _"
         return 1
     fi
 
