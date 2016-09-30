@@ -623,7 +623,7 @@ ls_all_dirs() {
 
 # get_all_env
 get_all_env() {
-    env | egrep "${gmpy_cdir_prefix}_[0-9]+_.*=.*$" | sort
+    env | egrep "${gmpy_cdir_prefix}_[0-9]+_.*=.*$" | sort -t '_' -n -k 3
 }
 
 get_num_cnt() {
@@ -773,14 +773,14 @@ get_env_from_num() {
 # get_env_from_path <path>
 # enable echo more than one env
 get_env_from_path() {
-    local env="$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_.*=$1/?$" | sort)"
+    local env="$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_.*=$1/?$" | sort -t '_' -k 3 -n)"
     [ -n "${env}" ] && echo "${env}"
 }
 
 # get_env_from_label <label>
 # enable echo more than one env if input regular expression
 get_env_from_label() {
-    local env="$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1=.*$" | sort)"
+    local env="$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1=.*$" | sort -t '_' -k 3 -n)"
     [ "$(echo "${env}" | wc -l)" -eq "1" ] && echo "${env}"
 }
 
