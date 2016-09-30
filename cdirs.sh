@@ -781,7 +781,7 @@ get_env_from_path() {
 # enable echo more than one env if input regular expression
 get_env_from_label() {
     local env="$(env | egrep "^${gmpy_cdir_prefix}_[0-9]+_$1=.*$" | sort -t '_' -k 3 -n)"
-    [ "$(echo "${env}" | wc -l)" -eq "1" ] && echo "${env}"
+    [ -n "${env}" ] && echo "${env}"
 }
 
 gmpy_init $@
