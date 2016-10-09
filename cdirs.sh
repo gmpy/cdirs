@@ -5,13 +5,28 @@ lsdir_options_list="hp:"
 cldir_options_list="gha"
 setdir_options_list="hg"
 
-cdir_options_list_full="reload,reset,num,label,path,help"
+cdir_options_list_full="lsdir,cldir,setdir,reload,reset,num,label,path,help"
 lsdir_options_list_full="print:,help"
 cldir_options_list_full="all,reset,help,reload,global"
 setdir_options_list_full="global,help"
 gmpy_init_options_list_full="replace-cd,help"
 
 cdir() {
+    local line="$@"
+    if $(echo ${line} | grep "\-\-setdir" &>/dev/null && return 0 || return 1); then
+        line=$(echo ${line} | sed 's/--setdir//g')
+        setdir ${line}
+        return 0
+    elif $(echo ${line} | grep "\-\-lsdir" &>/dev/null && return 0 || return 1); then
+        line=$(echo ${line} | sed 's/--lsdir//g')
+        lsdir ${line}
+        return 0
+    elif $(echo ${line} | grep "\-\-cldir" &>/dev/null && return 0 || return 1); then
+        line=$(echo ${line} | sed 's/--cldir//g')
+        cldir ${line}
+        return 0
+    fi
+
     local force_type
     local opts="$(getopt -l "${cdir_options_list_full}" -o "${cdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
@@ -41,6 +56,9 @@ cdir() {
                 ;;
             --reset)
                 reset
+                return 0
+                ;;
+            --lsdir|--cldir|--setdir)
                 return 0
                 ;;
             --)
@@ -162,10 +180,12 @@ cldir() {
 print_help() {
     case "$1" in
         cdir)
-            echo -e "\033[33mcdir [-h|--help] [-n|--num] [-l|--label] [-p|--path] [--reload] [--reset] <num|label|path>\033[0m"
+            echo -e "\033[33mcdir [--setdir|--lsdir|--cldir] [-h|--help] [-n|--num] [-l|--label] [-p|--path] [--reload] [--reset] <num|label|path>\033[0m"
             echo "--------------"
             echo -e "\033[32mcdir <num|label|path> :\033[0m"
             echo -e "    cd to path that pointed out by num|label|path\n"
+            echo -e "\033[32mcdir [--setdir|--lsdir|--cldir] <num|label|path> ... :\033[0m"
+            echo -e "    the same as command \"setdir|lsdir|cldir\",see also \"setdir -h\",\"lsdir -h\",\"cldir -h\"\n"
             echo -e "\033[32mcdir [-h|--help] :\033[0m"
             echo -e "    show this introduction\n"
             echo -e "\033[32mcdir [-n|--num] <parameter> :\033[0m"
@@ -335,10 +355,33 @@ complete_func() {
             fi
             ;;
         cd|cdir)
-            if [ "${word:0:2}" = "--" ]; then
-                complete_list="--$(echo "${cdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
-            elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
-                complete_list="$(echo "${cdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
+            if $(echo ${line} | egrep "\-\-cldir|\-\-lsdir|\-\-setdir" &>/dev/null && return 0 || return 1); then
+                if $(echo ${line} | grep "\-\-setdir" &>/dev/null && return 0 || return 1); then
+                    if [ "${word:0:2}" = "--" ]; then
+                        complete_list="--$(echo "${setdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
+                    elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
+                        complete_list="$(echo "${setdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
+                    else
+                        opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
+                        [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "2" ] && complete_list="$(get_all_label)"
+                    fi
+                elif $(echo ${line} | grep "\-\-lsdir" &>/dev/null && return 0 || return 1); then
+                    if [ "${word:0:2}" = "--" ]; then
+                        complete_list="--$(echo "${lsdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
+                    elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
+                        complete_list="$(echo "${lsdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
+                    else
+                        complete_list="$(get_all_label)"
+                    fi
+                elif $(echo ${line} | grep "\-\-cldir" &>/dev/null && return 0 || return 1); then
+                    if [ "${word:0:2}" = "--" ]; then
+                        complete_list="--$(echo "${cldir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
+                    elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
+                        complete_list="$(echo "${cldir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
+                    else
+                        complete_list="$(get_all_label)"
+                    fi
+                fi
             else
                 case "${COMP_WORDS[$(( ${COMP_CWORD} - 1 ))]}" in
                     "-l"|"--label")
@@ -351,12 +394,17 @@ complete_func() {
                         complete_list=
                         ;;
                     *)
-                        opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ --?[[:alpha:]]+ / /g' | wc -w) ))"
-                        [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(get_all_label)"
+                        if [ "${word:0:2}" = "--" ]; then
+                            complete_list="--$(echo "${cdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
+                        elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
+                            complete_list="$(echo "${cdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
+                        else
+                            complete_list="$(get_all_label)"
+                        fi
                         ;;
                 esac
             fi
-            ;;
+        ;;
     esac
     COMPREPLY=($(compgen -W "${complete_list}" -- "${word}"))
 }
