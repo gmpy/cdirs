@@ -174,15 +174,18 @@ cldir() {
         local res="n"
         while true
         do
-            read -p "Are you sure to clear all labels$([ "${global_flag}" -eq "1" ] && echo " but also global labels")? [y/n]" res
+            read -n 1 -p "Are you sure to clear all labels$([ "${global_flag}" -eq "1" ] && echo " but also global labels")? [y/n]" res
             case "${res}" in
                 y|Y)
+                    echo
                     break
                     ;;
                 n|N)
+                    echo
                     return 0
                     ;;
                 *)
+                    echo
                     continue
                     ;;
             esac
@@ -310,7 +313,7 @@ gmpy_cdir_clear_all() {
     IFS=$'\n'
     for env in $(gmpy_cdir_get_all_env)
     do
-        gmpy_cdir_clear_dir_from_num $1 "$(gmpy_cdir_get_num_from_env "${env}")"
+        gmpy_cdir_clear_dir_from_num $([ "$1" = "global" ] && echo global || echo no_global) "$(gmpy_cdir_get_num_from_env "${env}")"
     done
     IFS="${oIFS}"
 
