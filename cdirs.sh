@@ -791,13 +791,13 @@ _cldir() {
     do
         case "$(gmpy_cdir_check_type "${para}")" in
             "num")
-                gmpy_cdir_clear_dir_from_num $([ "${global_flag}" -eq "1" ] && echo "global" || echo "no_global") "${para}"
+                gmpy_cdir_clear_dir_from_num ${global_flag} "${para}"
                 ;;
             "label")
-                gmpy_cdir_clear_dir_from_label $([ "${global_flag}" -eq "1" ] && echo "global" || echo "no_global") "${para}"
+                gmpy_cdir_clear_dir_from_label ${global_flag} "${para}"
                 ;;
             "path")
-                gmpy_cdir_clear_dir_from_path $([ "${global_flag}" -eq "1" ] && echo "global" || echo "no_global") "${para}"
+                gmpy_cdir_clear_dir_from_path ${global_flag} "${para}"
                 ;;
         esac
     done
