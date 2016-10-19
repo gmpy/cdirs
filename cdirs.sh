@@ -97,10 +97,12 @@ setdir() {
         esac
     done
 
-    if [ "$#" -ne "2" ]; then
-        _setdir "$1" "$(shift;echo "$*")" "$([ "${global_flag}" -eq "1" ] && echo global)"
-    else
+    if [ "$#" -lt "2" ]; then
+        echo -e "\033[33msetdir [-h|--help] [-g|--global] <label> <path>\033[0m"
+    elif [ "$#" -eq "2" ]; then
         _setdir $@ "$([ "${global_flag}" -eq "1" ] && echo global)"
+    elif [ "$#" -gt "2" ]; then
+        _setdir "$1" "$(shift;echo "$*")" "$([ "${global_flag}" -eq "1" ] && echo global)"
     fi
 }
 
