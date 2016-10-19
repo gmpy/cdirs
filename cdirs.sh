@@ -175,6 +175,11 @@ cldir() {
             gmpy_cdir_clear_global_dir "$(eval echo "\$${num}")"
         done
     fi
+
+    if [ $# -lt 1 ]; then
+        echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] [--reset] [--reload] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+        return 1
+    fi
     _cldir $@
 }
 
@@ -760,10 +765,6 @@ gmpy_cdir_get_path_from_env() {
 
 # _cldir <num1|label1|path1> <num2|label2|path2> ...
 _cldir() {
-    if [ $# -lt 1 ]; then
-        echo "Usage: cldir <num1|label1|path1> <num2|label2|path2> ..."
-        return 1
-    fi
 
     for para in $@
     do
