@@ -171,6 +171,23 @@ cldir() {
     done
 
     if [ "${all_flag}" -eq "1" ]; then
+        local res="n"
+        while true
+        do
+            read -p "Are you sure to clear all labels$([ "${global_flag}" -eq "1" ] && echo " but also global labels")? [y/n]" res
+            case "${res}" in
+                y|Y)
+                    break
+                    ;;
+                n|N)
+                    return 0
+                    ;;
+                *)
+                    continue
+                    ;;
+            esac
+        done
+
         gmpy_cdir_clear_all $([ "${global_flag}" -eq "1" ] && echo "global")
         return 0
     fi
