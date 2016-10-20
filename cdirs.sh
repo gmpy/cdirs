@@ -67,12 +67,14 @@ cdir() {
         esac
     done
 
-    if [ "$#" -gt "1" ]; then
+    if [ "$#" -gt "1" ]; then #for path with space
         gmpy_cdir_replace_cd "$*"
     elif [ "$#" -eq "0" ]; then
         gmpy_cdir_replace_cd
+    elif [ "$#" -eq "1" ] && [ "$1" = "," ]; then
+        gmpy_cdir_replace_cd "$(eval "echo \${${gmpy_cdir_prefix}_mark"})"
     else
-        gmpy_cdir_replace_cd `_cdir "$1" "${force_type}"`
+        gmpy_cdir_replace_cd $(_cdir "$1" "${force_type}")
     fi
 }
 
@@ -98,7 +100,11 @@ setdir() {
     done
 
     if [ "$#" -lt "2" ]; then
-        echo -e "\033[33msetdir [-h|--help] [-g|--global] <label> <path>\033[0m"
+        if [ "$1" = ',' ]; then
+            gmpy_cdir_set_mark
+        else
+            echo -e "\033[33msetdir [-h|--help] [-g|--global] <label> <path>\033[0m"
+        fi
     elif [ "$#" -eq "2" ]; then
         _setdir $@ "$([ "${global_flag}" -eq "1" ] && echo global)"
     elif [ "$#" -gt "2" ]; then
@@ -202,16 +208,46 @@ cldir() {
     _cldir $([ "${global_flag}" -eq "1" ] && echo "global" || echo "no_global") $@
 }
 
+# gmpy_cdir_set_mark
+gmpy_cdir_set_mark() {
+    local var="${gmpy_cdir_prefix}_mark"
+    gmpy_cdir_set_env "${var}" "${PWD}"
+    if [ -n "$(eval "echo \${${var}}")" ]; then
+        echo -en "\033[31mcreate:\033[0m\t"
+    else
+        echo -en "\033[31mmodify:\033[0m\t"
+    fi
+    gmpy_cdir_list_mark
+}
+
+# gmpy_cdir_list_mark
+gmpy_cdir_list_mark() {
+    local var="${gmpy_cdir_prefix}_mark"
+    local path=$(gmpy_cdir_get_path_from_env $(eval "echo \${${var}}"))
+    [ -n "${path}" ] && printf '\033[32m%d)\t%-16s\t%s\033[0m\n' "0" "," "${path}"
+}
+
+# gmpy_cdir_clear_mark
+gmpy_cdir_clear_mark() {
+    local var="${gmpy_cdir_prefix}_mark"
+    [ -n "$(eval "echo \${${var}}")" ] || return 0
+    echo -en "\033[31mdelete:\033[0m\t"
+    gmpy_cdir_list_mark
+    unset ${var}
+}
+
 # gmpy_cdir_print_help <cdir|lsdir|setdir|cldir>
 gmpy_cdir_print_help() {
     case "$1" in
         cdir)
-            echo -e "\033[33mcdir [--setdir|--lsdir|--cldir] [-h|--help] [-n|--num] [-l|--label] [-p|--path] [--reload] [--reset] <num|label|path>\033[0m"
+            echo -e "\033[33mcdir [--setdir|--lsdir|--cldir] [-h|--help] [-n|--num] [-l|--label] [-p|--path] [--reload] [--reset] <num|label|path|,>\033[0m"
             echo "--------------"
             echo -e "\033[32mcdir <num|label|path> :\033[0m"
             echo -e "    cd to path that pointed out by num|label|path\n"
+            echo -e "\033[32mcdir <,> :\033[0m"
+            echo -e "    cd to special label-path, which is set by \"setdir ,\", see also \"setdir --help\""
             echo -e "\033[32mcdir [--setdir|--lsdir|--cldir] <num|label|path> ... :\033[0m"
-            echo -e "    the same as command \"setdir|lsdir|cldir\",see also \"setdir -h\",\"lsdir -h\",\"cldir -h\"\n"
+            echo -e "    the same as command \"setdir|lsdir|cldir\",see also \"setdir -h\", \"lsdir -h\", \"cldir -h\"\n"
             echo -e "\033[32mcdir [-h|--help] :\033[0m"
             echo -e "    show this introduction\n"
             echo -e "\033[32mcdir [-n|--num] <parameter> :\033[0m"
@@ -228,11 +264,14 @@ gmpy_cdir_print_help() {
             ;;
         setdir)
             echo -e "\033[33msetdir [-h|--help] [-g|--global] <label> <path>\033[0m"
+            echo -e "\033[33msetdir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32msetdir <label> <path> :\033[0m"
             echo -e "    set label to path, after that, you can use \"cdir label\" or \"cdir num\" to go to path (the num is setted by system and you can see by command \"lsdir\""
             echo -e "    moreover, path strings is support characters like . or .. or ~ or -"
             echo -e "    eg. \"setdir work .\" or \"setdir cdirs ~/cdirs\" or \"setdir last_dir -\" or others\n"
+            echo -e "\033[32msetdir <,> :\033[0m"
+            echo -e "    set current path as a special label ',' , which is usefull and quick for recording working path , you can go back fastly by \"cdir ,\""
             echo -e "\033[32msetdir [-h|--help] :\033[0m"
             echo -e "    show this introduction\n"
             echo -e "\033[32msetdir [-g|--gloabl] <label> <path> :\033[0m"
@@ -240,14 +279,16 @@ gmpy_cdir_print_help() {
             echo -e "\033[31mNote: label starts with a letter and is a combination of letters, character _ and number\033[0m"
             ;;
         cldir)
-            echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] [--reset] [--reload] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+            echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] [--reset] [--reload] <num1|label1|path1|,> <num2|label2|path2|,> ...\033[0m"
             echo "--------------"
             echo -e "\033[32mcldir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
             echo -e "    clear the label-path. if path, clear all label-path matching this path; if label, it supports regular expression\n"
+            echo -e "\033[32mcldir <,>\033[0m"
+            echo -e "    clear the special label-path. see also \"setdir --help\""
             echo -e "\033[32mcldir [-h|--help] :\033[0m"
             echo -e "    show this introduction\n"
             echo -e "\033[32mcldir [-g|--gloabl] <num|label|path> :\033[0m"
-            echo -e "    unset label to path, moreover, delete it in ~/.cdir_default. see also setdir -h|--hlep\n"
+            echo -e "    unset label to path, moreover, delete it in ~/.cdir_default. see also \"setdir -h|--hlep\"\n"
             echo -e "\033[32mcldir [-a|--all] :\033[0m"
             echo -e "    clear all label-path\n"
             echo -e "\033[32mcldir [--reset] :\033[0m"
@@ -256,10 +297,12 @@ gmpy_cdir_print_help() {
             echo -e "    reload ~/.cdir_default, which record the static label-path"
             ;;
         lsdir)
-            echo -e "\033[33mlsdir [-h|--help] [-p|--print <num|label|path>] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+            echo -e "\033[33mlsdir [-h|--help] [-p|--print <num|label|path>] <num1|label1|path1|,> <num2|label2|path2|,> ...\033[0m"
             echo "--------------"
             echo -e "\033[32mlsdir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
             echo -e "    list the label-path. if path, list all label-path matching this path; if label, it supports regular expression\n"
+            echo -e "\033[32mlsdir <,> :\033[0m"
+            echo -e "    list the special label-path. see also \"setdir --help\""
             echo -e "\033[32mlsdir [-h|--help] :\033[0m"
             echo -e "    show this introduction\n"
             echo -e "\033[32mlsdir [-p|--print <num|label|path>] :\033[0m"
@@ -631,12 +674,12 @@ _setdir() {
     fi
 
     if [ -n "${path}" ] && [ -n "${var}" ]; then
-        gmpy_cdir_set_env "${var}" "${path}"
         if echo "$3" | grep -w "global" &>/dev/null; then
             gmpy_cdir_clear_global_label_from_label "$1"
             gmpy_cdir_set_dir_defalut "$1" "${path}"
             echo -en "\033[33m[global] \033[0m"
         fi
+        gmpy_cdir_set_env "${var}" "${path}"
         echo "$3" | grep -w "no_print" &>/dev/null || gmpy_cdir_ls_format "$(gmpy_cdir_get_env_from_label "$1" | head -n 1)"
     fi
 }
@@ -679,7 +722,11 @@ _lsdir() {
     if [ "$#" -gt 0 ]; then
         for para in $@
         do
-            gmpy_cdir_ls_one_dir "${para}"
+            if [ "${para}" = "," ]; then
+                gmpy_cdir_list_mark
+            else
+                gmpy_cdir_ls_one_dir "${para}"
+            fi
         done
     else
         gmpy_cdir_ls_all_dirs
@@ -688,6 +735,7 @@ _lsdir() {
 
 # gmpy_cdir_ls_all_dirs
 gmpy_cdir_ls_all_dirs() {
+    gmpy_cdir_list_mark
     local oIFS="${IFS}"
     IFS=$'\n'
     for env in $(gmpy_cdir_get_all_env)
@@ -791,17 +839,21 @@ _cldir() {
 
     for para in $@
     do
-        case "$(gmpy_cdir_check_type "${para}")" in
-            "num")
-                gmpy_cdir_clear_dir_from_num ${global_flag} "${para}"
-                ;;
-            "label")
-                gmpy_cdir_clear_dir_from_label ${global_flag} "${para}"
-                ;;
-            "path")
-                gmpy_cdir_clear_dir_from_path ${global_flag} "${para}"
-                ;;
-        esac
+        if [ "${para}" = "," ]; then
+            gmpy_cdir_clear_mark
+        else
+            case "$(gmpy_cdir_check_type "${para}")" in
+                "num")
+                    gmpy_cdir_clear_dir_from_num ${global_flag} "${para}"
+                    ;;
+                "label")
+                    gmpy_cdir_clear_dir_from_label ${global_flag} "${para}"
+                    ;;
+                "path")
+                    gmpy_cdir_clear_dir_from_path ${global_flag} "${para}"
+                    ;;
+            esac
+        fi
     done
 }
 
