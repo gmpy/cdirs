@@ -283,6 +283,7 @@ gmpy_cdir_clear_global_label() {
             gmpy_cdir_clear_global_label_from_label "$(gmpy_cdir_get_label_from_env "$(gmpy_cdir_get_env_from_path "${path}")")"
             ;;
     esac
+    return 0
 }
 
 # gmpy_cdir_replace_cd <path>
@@ -634,6 +635,7 @@ _setdir() {
         if echo "$3" | grep -w "global" &>/dev/null; then
             gmpy_cdir_clear_global_label_from_label "$1"
             gmpy_cdir_set_dir_defalut "$1" "${path}"
+            echo -en "\033[33m[global] \033[0m"
         fi
         echo "$3" | grep -w "no_print" &>/dev/null || gmpy_cdir_ls_format "$(gmpy_cdir_get_env_from_label "$1" | head -n 1)"
     fi
@@ -812,8 +814,10 @@ gmpy_cdir_get_var_from_env() {
 gmpy_cdir_clear_dir_from_num() {
     local env="$(gmpy_cdir_get_env_from_num "$2")"
     local var="$(gmpy_cdir_get_var_from_env "${env}")"
-    [ "$1" = "global" ] && gmpy_cdir_clear_global_label "$(gmpy_cdir_get_label_from_env ${env})"
-    unset ${var} && echo -e "\033[31mdelete:\033[0m\t$(gmpy_cdir_ls_format "${env}")"
+
+    [ -n "${env}" ] && echo -ne "\033[31mdelete:\t\033[0m" || return 1
+    [ "$1" = "global" ] && gmpy_cdir_clear_global_label "$(gmpy_cdir_get_label_from_env ${env})" && echo -ne "\033[33m$([ "$1" = "global" ] && echo "[global] ")\033[0m"
+    unset ${var} && gmpy_cdir_ls_format "${env}"
 }
 
 # gmpy_cdir_clear_dir_from_path <global|no_global> <path>
@@ -822,8 +826,9 @@ gmpy_cdir_clear_dir_from_path() {
     IFS=$'\n'
     for env in $(gmpy_cdir_get_env_from_path "$(gmpy_cdir_get_absolute_path "$2")")
     do
-        [ "$1" = "global" ] && gmpy_cdir_clear_global_label "$(gmpy_cdir_get_label_from_env ${env})"
-        unset "$(gmpy_cdir_get_var_from_env "${env}")" && echo -e "\033[31mdelete:\033[0m\t$(gmpy_cdir_ls_format "${env}")"
+        [ -n "${env}" ] && echo -ne "\033[31mdelete:\t\033[0m" || return 1
+        [ "$1" = "global" ] && gmpy_cdir_clear_global_label "$(gmpy_cdir_get_label_from_env ${env})" && echo -ne "\033[33m$([ "$1" = "global" ] && echo "[global] ")\033[0m"
+        unset "$(gmpy_cdir_get_var_from_env "${env}")" && gmpy_cdir_ls_format "${env}"
     done
     IFS="${oIFS}"
 }
@@ -834,8 +839,9 @@ gmpy_cdir_clear_dir_from_label() {
     IFS=$'\n'
     for env in $(gmpy_cdir_get_env_from_label "$2")
     do
-        [ "$1" = "global" ] && gmpy_cdir_clear_global_label "$(gmpy_cdir_get_label_from_env ${env})"
-        unset "$(gmpy_cdir_get_var_from_env "${env}")" && echo -e "\033[31mdelete:\033[0m\t$(gmpy_cdir_ls_format "${env}")"
+        [ -n "${env}" ] && echo -ne "\033[31mdelete:\t\033[0m" || return 1
+        [ "$1" = "global" ] && gmpy_cdir_clear_global_label "$(gmpy_cdir_get_label_from_env ${env})" && echo -ne "\033[33m$([ "$1" = "global" ] && echo "[global] ")\033[0m"
+        unset "$(gmpy_cdir_get_var_from_env "${env}")" && gmpy_cdir_ls_format "${env}"
     done
     IFS="${oIFS}"
 }
