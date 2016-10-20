@@ -72,7 +72,9 @@ cdir() {
     elif [ "$#" -eq "0" ]; then
         gmpy_cdir_replace_cd
     elif [ "$#" -eq "1" ] && [ "$1" = "," ]; then
-        gmpy_cdir_replace_cd "$(eval "echo \${${gmpy_cdir_prefix}_mark"})"
+        local path="$(eval "echo \${${gmpy_cdir_prefix}_mark"})"
+        [ -z "${path}" ] && return 0
+        gmpy_cdir_replace_cd "${path}"
     else
         gmpy_cdir_replace_cd $(_cdir "$1" "${force_type}")
     fi
