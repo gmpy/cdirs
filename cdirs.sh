@@ -722,6 +722,8 @@ _cdir() {
 
 # _lsdir [num1|label1|path1] [num2|label2|path2] ...
 _lsdir() {
+    printf '\033[32m%s\t%-16s\t%s\033[0m\n' "num" "label" "path"
+    printf '\033[32m%s\t%-16s\t%s\033[0m\n' "---" "-----" "----"
     if [ "$#" -gt 0 ]; then
         for para in $@
         do
