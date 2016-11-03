@@ -105,7 +105,7 @@ setdir() {
         if [ "$1" = ',' ]; then
             gmpy_cdir_set_mark
         else
-            echo -e "\033[33msetdir [-h|--help] [-g|--global] <label> <path>\033[0m"
+            gmpy_cdir_print_help "setdir"
         fi
     elif [ "$#" -eq "2" ]; then
         _setdir $@ "$([ "${global_flag}" -eq "1" ] && echo global)"
@@ -204,7 +204,7 @@ cldir() {
     fi
 
     if [ $# -lt 1 ]; then
-        echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] [--reset] [--reload] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+        gmpy_cdir_print_help "cldir"
         return 1
     fi
     _cldir $([ "${global_flag}" -eq "1" ] && echo "global" || echo "no_global") $@
@@ -279,10 +279,11 @@ gmpy_cdir_print_help() {
             echo -e "    show this introduction\n"
             echo -e "\033[32msetdir [-g|--gloabl] <label> <path> :\033[0m"
             echo -e "    set label to path, moreover, record it in ~/.cdir_default. In this way, you can set this label-path automatically everytimes you run a terminal\n"
-            echo -e "\033[31mNote: label starts with a letter and is a combination of letters, character _ and number\033[0m"
+            echo -e "\033[31mNote: label starts with a letter and is a combination of letters, numbers and '_'\033[0m"
             ;;
         cldir)
-            echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] [--reset] [--reload] <num1|label1|path1|,> <num2|label2|path2|,> ...\033[0m"
+            echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] [--reset] [--reload] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+            echo -e "\033[33mcldir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32mcldir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
             echo -e "    clear the label-path. if path, clear all label-path matching this path; if label, it supports regular expression\n"
@@ -300,7 +301,8 @@ gmpy_cdir_print_help() {
             echo -e "    reload ~/.cdir_default, which record the static label-path"
             ;;
         lsdir)
-            echo -e "\033[33mlsdir [-h|--help] [-p|--print <num|label|path>] <num1|label1|path1|,> <num2|label2|path2|,> ...\033[0m"
+            echo -e "\033[33mlsdir [-h|--help] [-p|--print <num|label|path>] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+            echo -e "\033[33mlsdir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32mlsdir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
             echo -e "    list the label-path. if path, list all label-path matching this path; if label, it supports regular expression\n"
