@@ -216,8 +216,8 @@ cldir() {
     _cldir $([ "${global_flag}" -eq "1" ] && echo "global" || echo "no_global") $@
 }
 
-# gmpy_cdir_modify_label_symbol <from-symbol> <to-symbol> <label>
-gmpy_cdir_modify_label_symbol() {
+# gmpy_cdir_change_label_symbol <from-symbol> <to-symbol> <label>
+gmpy_cdir_change_label_symbol() {
     case "$1" in
         .)
             eval "echo \"$3\" | sed 's/\\$1/$2/g'"
@@ -434,7 +434,7 @@ gmpy_cdir_complete_func() {
             elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
                 complete_list="$(eval "echo \"\${${cmd}_options_list}\" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g'")"
             else
-                complete_list="$(gmpy_cdir_modify_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
+                complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
             fi
             ;;
         setdir)
@@ -444,7 +444,7 @@ gmpy_cdir_complete_func() {
                 complete_list="$(eval "echo \"\${${cmd}_options_list}\" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g'")"
             else
                 opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
-                [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(gmpy_cdir_modify_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
+                [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
             fi
             ;;
         cd|cdir)
@@ -456,7 +456,7 @@ gmpy_cdir_complete_func() {
                         complete_list="$(echo "${gmpy_cdir_setdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
                     else
                         opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
-                        [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "2" ] && complete_list="$(gmpy_cdir_modify_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
+                        [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "2" ] && complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
                     fi
                 elif $(echo ${line} | grep "\-\-lsdir" &>/dev/null && return 0 || return 1); then
                     if [ "${word:0:2}" = "--" ]; then
@@ -464,7 +464,7 @@ gmpy_cdir_complete_func() {
                     elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
                         complete_list="$(echo "${gmpy_cdir_lsdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
                     else
-                        complete_list="$(gmpy_cdir_modify_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
+                        complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
                     fi
                 elif $(echo ${line} | grep "\-\-cldir" &>/dev/null && return 0 || return 1); then
                     if [ "${word:0:2}" = "--" ]; then
@@ -472,13 +472,13 @@ gmpy_cdir_complete_func() {
                     elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
                         complete_list="$(echo "${gmpy_cdir_cldir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
                     else
-                        complete_list="$(gmpy_cdir_modify_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
+                        complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
                     fi
                 fi
             else
                 case "${COMP_WORDS[$(( ${COMP_CWORD} - 1 ))]}" in
                     "-l"|"--label")
-                        complete_list="$(gmpy_cdir_modify_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
+                        complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
                         ;;
                     "-n"|"--num")
                         complete_list="$(gmpy_cdir_get_all_num)"
@@ -492,7 +492,7 @@ gmpy_cdir_complete_func() {
                         elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
                             complete_list="$(echo "${gmpy_cdir_cdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
                         else
-                            complete_list="$(gmpy_cdir_modify_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
+                            complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
                             complete_list="${complete_list} $(ls -F | grep "^${word}.*[/@]$" | sed 's/[\/@]//g')"
                         fi
                         ;;
@@ -555,8 +555,10 @@ gmpy_cdir_get_path() {
             path="$(gmpy_cdir_get_path_from_num "$1")"
             ;;
         "label")
-            local label=$(gmpy_cdir_modify_label_symbol "${gmpy_cdir_label_symbol}" '_' "$1")
-            [ "$(gmpy_cdir_check_label "${label}")" = "yes" ] && path="$(gmpy_cdir_get_path_from_label "${label}")"
+            [ "$(gmpy_cdir_check_label "$1")" = "yes" ] && {
+                local label=$(gmpy_cdir_change_label_symbol "${gmpy_cdir_label_symbol}" '_' "$1")
+                path="$(gmpy_cdir_get_path_from_label "${label}")"
+            }
             ;;
     esac
 
@@ -565,7 +567,7 @@ gmpy_cdir_get_path() {
 
 # gmpy_cdir_check_label <label>
 gmpy_cdir_check_label() {
-    [ -n "$(echo "$1" | egrep "^[[:alpha:]]([[:alnum:]]*_*[[:alnum:]]*)*$")" ] && echo yes || echo no
+    [ -n "$(echo "$1" | egrep "^[[:alpha:]]([[:alnum:]]*${gmpy_cdir_label_symbol}*[[:alnum:]]*)*$")" ] && echo yes || echo no
 }
 
 # gmpy_cdir_get_path_from_num <num>
@@ -674,7 +676,7 @@ gmpy_cdir_get_absolute_path() {
 _setdir() {
     #get path
     local path="$(gmpy_cdir_get_absolute_path "$2")"
-    local label="$(gmpy_cdir_modify_label_symbol "${gmpy_cdir_label_symbol}" '_' "$1")"
+    local label="$1"
 
     if [ "$(gmpy_cdir_is_exited_dir "${path}")" = "no" ]; then
         echo -e "\033[31m${path} is not existed\033[0m"
@@ -686,6 +688,8 @@ _setdir() {
         echo "label starts with a letter and is a combination of letters, numbers and '${gmpy_cdir_label_symbol}'"
         return 1
     fi
+
+    label="$(gmpy_cdir_change_label_symbol "${gmpy_cdir_label_symbol}" '_' "${label}")"
 
     #get var
     local var="$(gmpy_cdir_get_env_from_label "${label}" | head -n 1)"
@@ -804,7 +808,7 @@ gmpy_cdir_ls_one_dir() {
         label)  #support regular expression
             local oIFS="${IFS}"
             IFS=$'\n'
-            for env in $(gmpy_cdir_get_env_from_label "$(gmpy_cdir_modify_label_symbol "${gmpy_cdir_label_symbol}" '_' "$1")")
+            for env in $(gmpy_cdir_get_env_from_label "$(gmpy_cdir_change_label_symbol "${gmpy_cdir_label_symbol}" '_' "$1")")
             do
                 gmpy_cdir_ls_format "${env}"
             done
@@ -820,7 +824,7 @@ gmpy_cdir_ls_format() {
     fi
     
     local num="$(gmpy_cdir_get_num_from_env "$1")"
-    local label="$(gmpy_cdir_modify_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_label_from_env "$1")")"
+    local label="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_label_from_env "$1")")"
     local path="$(gmpy_cdir_get_path_from_env "$1")"
 
     if [ -n "${num}" ] && [ -n "${label}" ] && [ -n "${path}" ]; then
@@ -916,7 +920,7 @@ gmpy_cdir_clear_dir_from_path() {
 gmpy_cdir_clear_dir_from_label() {
     local oIFS="${IFS}"
     IFS=$'\n'
-    for env in $(gmpy_cdir_get_env_from_label "$(gmpy_cdir_modify_label_symbol "${gmpy_cdir_label_symbol}" '_' "$2")")
+    for env in $(gmpy_cdir_get_env_from_label "$(gmpy_cdir_change_label_symbol "${gmpy_cdir_label_symbol}" '_' "$2")")
     do
         [ -n "${env}" ] && echo -ne "\033[31mdelete:\t\033[0m" || return 1
         [ "$1" = "global" ] && gmpy_cdir_clear_global_label "$(gmpy_cdir_get_label_from_env ${env})" && echo -ne "\033[33m$([ "$1" = "global" ] && echo "[global] ")\033[0m"
