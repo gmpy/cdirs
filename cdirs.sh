@@ -415,7 +415,8 @@ gmpy_cdir_init() {
     gmpy_cdir_initialized=0
     gmpy_cdir_load_default_label "no_print"
 
-    complete -F gmpy_cdir_complete_func -o dirnames "cdir" "setdir" "lsdir" "cldir" "$([ "$(type -t cd)" = "alias" ] && echo "cd")"
+    complete -F gmpy_cdir_complete_func -o dirnames "setdir" "lsdir" "cldir"
+    complete -F gmpy_cdir_complete_func -o dirnames -A directory "cdir" "$([ "$(type -t cd)" = "alias" ] && echo "cd")"
 
 }
 
@@ -493,7 +494,6 @@ gmpy_cdir_complete_func() {
                             complete_list="$(echo "${gmpy_cdir_cdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
                         else
                             complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
-                            complete_list="${complete_list} $(ls -F | grep "^${word}.*[/@]$" | sed 's/[\/@]//g')"
                         fi
                         ;;
                 esac
