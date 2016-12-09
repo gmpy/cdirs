@@ -7,12 +7,12 @@
 gmpy_cdir_label_symbol='-'
 
 gmpy_cdir_cdir_options_list="hnlp"
-gmpy_cdir_lsdir_options_list="hp:"
+gmpy_cdir_lsdir_options_list="hp"
 gmpy_cdir_cldir_options_list="gha"
 gmpy_cdir_setdir_options_list="hg"
 
 gmpy_cdir_cdir_options_list_full="lsdir,cldir,setdir,reload,reset,num,label,path,help"
-gmpy_cdir_lsdir_options_list_full="print:,help"
+gmpy_cdir_lsdir_options_list_full="path,help"
 gmpy_cdir_cldir_options_list_full="all,reset,help,reload,global"
 gmpy_cdir_setdir_options_list_full="global,help"
 gmpy_cdir_init_options_list_full="replace-cd,help"
@@ -122,6 +122,7 @@ setdir() {
 
 lsdir() {
     local opts="$(getopt -l "${gmpy_cdir_lsdir_options_list_full}" -o "${gmpy_cdir_lsdir_options_list}" -- $@)" || return 1
+    local path="not_only_path"
     eval set -- "${opts}"
     while true
     do
@@ -131,9 +132,8 @@ lsdir() {
                 return 0
                 ;;
             -p|--print)
-                local path="$(gmpy_cdir_get_path $2)"
-                echo "${path}" | grep "^.*/$" &>/dev/null && echo "${path%/*}" || echo "${path}"
-                return 0
+                path="only_path"
+                shift
                 ;;
             --)
                 shift
@@ -142,7 +142,7 @@ lsdir() {
         esac
     done
 
-    _lsdir $@
+    _lsdir "${path}" $@
 }
 
 cldir() {
@@ -238,6 +238,13 @@ gmpy_cdir_set_mark() {
         echo -en "\033[31mmodify:\033[0m\t"
     fi
     gmpy_cdir_list_mark
+}
+
+# gmpy_cdir_list_mark_only_path
+gmpy_cdir_list_mark_only_path() {
+    local var="${gmpy_cdir_prefix}_mark"
+    local path=$(gmpy_cdir_get_path_from_env $(eval "echo \${${var}}"))
+    [ -n "${path}" ] && echo ${path}
 }
 
 # gmpy_cdir_list_mark
@@ -746,17 +753,27 @@ _cdir() {
     fi
 }
 
-# _lsdir [num1|label1|path1] [num2|label2|path2] ...
+# _lsdir <only_path|not_only_path> [num1|label1|path1] [num2|label2|path2] ...
 _lsdir() {
-    printf '\033[32m%s\t%-16s\t%s\033[0m\n' "num" "label" "path"
-    printf '\033[32m%s\t%-16s\t%s\033[0m\n' "---" "-----" "----"
+    local path_flag="$1" && shift
+    [ "${path_flag}" = "not_only_path" ] && printf '\033[32m%s\t%-16s\t%s\033[0m\n' "num" "label" "path"
+    [ "${path_flag}" = "not_only_path" ] && printf '\033[32m%s\t%-16s\t%s\033[0m\n' "---" "-----" "----"
     if [ "$#" -gt 0 ]; then
         for para in $@
         do
             if [ "${para}" = "," ]; then
-                gmpy_cdir_list_mark
+                if [ "${path_flag}" = "not_only_path" ]; then
+                    gmpy_cdir_list_mark
+                else
+                    gmpy_cdir_list_mark_only_path
+                fi
             else
-                gmpy_cdir_ls_one_dir "${para}"
+                if [ "${path_flag}" = "not_only_path" ]; then
+                    gmpy_cdir_ls_one_dir "${para}"
+                else
+                    local path="$(gmpy_cdir_get_path ${para})"
+                    echo "${path}" | grep "^.*/$" &>/dev/null && echo "${path%/*}" || echo "${path}"
+                fi
             fi
         done
     else
