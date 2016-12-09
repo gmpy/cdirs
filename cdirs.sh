@@ -704,8 +704,8 @@ _setdir() {
 
     if [ -n "${path}" ] && [ -n "${var}" ]; then
         if echo "$3" | grep -w "global" &>/dev/null; then
-            gmpy_cdir_clear_global_label_from_label "${label}"
-            gmpy_cdir_set_dir_defalut "${label}" "${path}"
+            gmpy_cdir_clear_global_label_from_label "$1"
+            gmpy_cdir_set_dir_defalut "$1" "${path}"
             echo -en "\033[33m[global] \033[0m"
         fi
         gmpy_cdir_set_env "${var}" "${path}"
