@@ -438,18 +438,18 @@ gmpy_cdir_complete_func() {
     case "${cmd}" in
         cldir|lsdir)
             if [ "${word:0:2}" = "--" ]; then
-                complete_list="--$(eval "echo \"\${${cmd}_options_list_full}\" | sed 's/,/ --/g' | sed 's/://g'")"
+                complete_list="--$(eval "echo \"\${gmpy_cdir_${cmd}_options_list_full}\" | sed 's/,/ --/g' | sed 's/://g'")"
             elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
-                complete_list="$(eval "echo \"\${${cmd}_options_list}\" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g'")"
+                complete_list="$(eval "echo \"\${gmpy_cdir_${cmd}_options_list}\" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g'")"
             else
                 complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
             fi
             ;;
         setdir)
             if [ "${word:0:2}" = "--" ]; then
-                complete_list="--$(eval "echo \"\${${cmd}_options_list_full}\" | sed 's/,/ --/g' | sed 's/://g'")"
+                complete_list="--$(echo "${gmpy_cdir_setdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
             elif [ "${word:0:1}" = "-" ] && [ ! "${word:1:2}" = '-' ]; then
-                complete_list="$(eval "echo \"\${${cmd}_options_list}\" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g'")"
+                complete_list="$(echo "${gmpy_cdir_setdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
             else
                 opts_cnt="$(( $(echo ${line} | wc -w) - $(echo "${line}" | sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
                 [ "$(( ${COMP_CWORD} - ${opts_cnt} ))" -eq "1" ] && complete_list="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_all_label)")"
