@@ -6,12 +6,12 @@
 # _ - =
 gmpy_cdir_label_symbol='-'
 
-gmpy_cdir_cdir_options_list="hnlp"
+gmpy_cdir_cdir_options_list="hn:l:p:"
 gmpy_cdir_lsdir_options_list="hp"
 gmpy_cdir_cldir_options_list="gha"
 gmpy_cdir_setdir_options_list="hg"
 
-gmpy_cdir_cdir_options_list_full="lsdir,cldir,setdir,reload,reset,num,label,path,help"
+gmpy_cdir_cdir_options_list_full="lsdir,cldir,setdir,reload,reset,num:,label:,path:,help"
 gmpy_cdir_lsdir_options_list_full="path,help"
 gmpy_cdir_cldir_options_list_full="all,reset,help,reload,global"
 gmpy_cdir_setdir_options_list_full="global,help"
@@ -34,7 +34,9 @@ cdir() {
     fi
 
     local force_type
-    local opts="$(getopt -l "${gmpy_cdir_cdir_options_list_full}" -o "${gmpy_cdir_cdir_options_list}" -- $@)" || return 1
+    local opts
+
+    opts="$(getopt -l "${gmpy_cdir_cdir_options_list_full}" -o "${gmpy_cdir_cdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -88,7 +90,9 @@ cdir() {
 
 setdir() {
     local global_flag=0
-    local opts="$(getopt -l "${gmpy_cdir_setdir_options_list_full}" -o "${gmpy_cdir_setdir_options_list}" -- $@)" || return 1
+    local opts
+
+    opts="$(getopt -l "${gmpy_cdir_setdir_options_list_full}" -o "${gmpy_cdir_setdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -121,8 +125,10 @@ setdir() {
 }
 
 lsdir() {
-    local opts="$(getopt -l "${gmpy_cdir_lsdir_options_list_full}" -o "${gmpy_cdir_lsdir_options_list}" -- $@)" || return 1
-    local path="not_only_path"
+    local opts
+    local path_flag="not_only_path"
+
+    opts=`getopt -o "${gmpy_cdir_lsdir_options_list}" -l "${gmpy_cdir_lsdir_options_list_full}" -- $@` || return 1
     eval set -- "${opts}"
     while true
     do
@@ -131,8 +137,8 @@ lsdir() {
                 gmpy_cdir_print_help "lsdir"
                 return 0
                 ;;
-            -p|--print)
-                path="only_path"
+            -p|--path)
+                path_flag="only_path"
                 shift
                 ;;
             --)
@@ -142,13 +148,19 @@ lsdir() {
         esac
     done
 
-    _lsdir "${path}" $@
+    [ "${path_flag}" = "only_path" -a $# -eq 0 ] && {
+        echo "lsdir: option -p requires an argument, lsdir -p <num|label|path>, see more lsdir -h"
+        return 1
+    }
+    _lsdir "${path_flag}" $@
 }
 
 cldir() {
-    local opts="$(getopt -l "${gmpy_cdir_cldir_options_list_full}" -o "${gmpy_cdir_cldir_options_list}" -- $@)" || return 1
+    local opts
     local global_flag=0
     local all_flag=0
+
+    opts="$(getopt -l "${gmpy_cdir_cldir_options_list_full}" -o "${gmpy_cdir_cldir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
@@ -267,7 +279,9 @@ gmpy_cdir_clear_mark() {
 gmpy_cdir_print_help() {
     case "$1" in
         cdir)
-            echo -e "\033[33mcdir [--setdir|--lsdir|--cldir] [-h|--help] [-n|--num] [-l|--label] [-p|--path] [--reload] [--reset] <num|label|path>\033[0m"
+            echo -e "\033[33mcdir [-h|--help] [--reload] [--reset] <num|label|path>\033[0m"
+            echo -e "\033[33mcdir [--setdir|--lsdir|--cldir] ...\033[0m"
+            echo -e "\033[33mcdir [<-n|--num> <num>] [<-l|--label|> <label>] [<-p|--path> <path>]\033[0m"
             echo -e "\033[33mcdir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32mcdir <num|label|path> :\033[0m"
@@ -326,7 +340,7 @@ gmpy_cdir_print_help() {
             echo -e "    reload ~/.cdir_default, which record the static label-path"
             ;;
         lsdir)
-            echo -e "\033[33mlsdir [-h|--help] [-p|--print <num|label|path>] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
+            echo -e "\033[33mlsdir [-h|--help] [-p|--path <num|label|path>] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
             echo -e "\033[33mlsdir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32mlsdir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
@@ -335,7 +349,7 @@ gmpy_cdir_print_help() {
             echo -e "    list the special label-path. see also \"setdir --help\"\n"
             echo -e "\033[32mlsdir [-h|--help] :\033[0m"
             echo -e "    show this introduction\n"
-            echo -e "\033[32mlsdir [-p|--print <num|label|path>] :\033[0m"
+            echo -e "\033[32mlsdir [-p|--path <num|label|path>] :\033[0m"
             echo -e "    only print path of label-path, which is usefull to embedded in other commands"
             echo -e "    eg. cat \`lsdir -p cdirs\`/readme.txt => cat /home/user/cdirs/readme.txt"
             ;;
