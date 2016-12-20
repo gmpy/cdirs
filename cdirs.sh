@@ -48,14 +48,17 @@ cdir() {
             -l|--label)
                 force_type="label"
                 shift
+                break
                 ;;
             -n|--num)
                 force_type="num"
                 shift
+                break
                 ;;
             -p|--path)
                 force_type="path"
                 shift
+                break
                 ;;
             --reload)
                 gmpy_cdir_initialized=0
@@ -75,7 +78,9 @@ cdir() {
         esac
     done
 
-    if [ "$#" -gt "1" ]; then #for path with space
+    if [ -n "${force_type}" ]; then
+        gmpy_cdir_replace_cd $(_cdir "$1" "${force_type}")
+    elif [ "$#" -gt "1" ]; then #for path with space
         gmpy_cdir_replace_cd "$*"
     elif [ "$#" -eq "0" ]; then
         gmpy_cdir_replace_cd
@@ -84,7 +89,7 @@ cdir() {
         [ -z "${path}" ] && return 0
         gmpy_cdir_replace_cd "${path}"
     else
-        gmpy_cdir_replace_cd $(_cdir "$1" "${force_type}")
+        gmpy_cdir_replace_cd $(_cdir "$1")
     fi
 }
 
