@@ -384,7 +384,7 @@ gmpy_cdir_replace_cd() {
     [ -n "${alias_cd}" ] && unalias cd
     if [ "$(type -t cd)" = "builtin" ]; then
         if [ -n "$*" ]; then
-            cd "$*"
+            eval cd "$*"
         else
             cd
         fi
@@ -562,7 +562,8 @@ gmpy_cdir_load_default_label() {
     for line in $(cat ~/.cdir_default | egrep -v "^#.*$|^$" | grep "=")
     do
         IFS="${oIFS}"
-        _setdir "${line%%=*}" "${line##*=}" "$1"
+        # Enable path with variable
+        _setdir "$(echo ${line%%=*})" "$(eval echo ${line##*=})" "$1"
         IFS=$'\n'
     done
     IFS="${oIFS}"
