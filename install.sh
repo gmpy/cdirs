@@ -65,7 +65,8 @@ print_help() {
 }
 
 uninstall() {
-    [ -f ~/.bashrc ] && sed -i '/set for cdir/,/end for cdir/d' ~/.bashrc
+    [ -f ~/.bashrc ] && sed -i '/set for cdirs/,/end for cdirs/d' ~/.bashrc
+    [ -f ~/.bash_logout ] && sed -i '/set for cdirs/,/end for cdirs/d' ~/.bash_logout
 }
 
 if [ "$#" -gt 1 ]; then
@@ -103,14 +104,22 @@ check_cdirs && echo YES || {
     exit 1
 }
 
-echo -n "setting cdirs to ~/.bashrc ... "
 uninstall
+echo -n "setting cdirs to ~/.bashrc ... "
 cat >> ~/.bashrc <<EOF
-# == set for cdir ==
+# == set for cdirs ==
 [ "\$(type -t cd)" = "alias" ] && unalias cd
 wait
 source ${src} $([ -z "${not_replace_cd}" ] && echo "--replace-cd")
-# == end for cdir ==
+# == end for cdirs ==
+EOF
+echo "YES"
+
+echo -n "setting cdirs to ~/.bash_logout ... "
+cat >> ~/.bash_logout <<EOF
+# == set for cdirs ==
+[ -n "\${gmpy_cdirs_env}" ] && rm \${gmpy_cdirs_env}
+# == end for cdirs ==
 EOF
 echo "YES"
 
