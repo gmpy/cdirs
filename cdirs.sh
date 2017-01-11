@@ -233,6 +233,115 @@ cldir() {
     _cldir $([ "${global_flag}" -eq "1" ] && echo "global" || echo "no_global") $@
 }
 
+# _cdir <label|num|path> [num|label|path](point out the type)
+_cdir() {
+    if [ -n "$2" ]; then
+        echo "$(gmpy_cdir_get_path "$1" "$2")"
+    else
+        if [ "`gmpy_cdir_is_exited_dir "$1"`" = "yes" ]; then
+            echo "$1"
+            return 0
+        fi
+
+        echo "$(gmpy_cdir_get_path "$1")"
+    fi
+}
+
+# _lsdir <only_path|not_only_path> [num1|label1|path1] [num2|label2|path2] ...
+_lsdir() {
+    local path_flag="$1" && shift
+    [ "${path_flag}" = "not_only_path" ] && printf '\033[32m%s\t%-16s\t%s\033[0m\n' "num" "label" "path"
+    [ "${path_flag}" = "not_only_path" ] && printf '\033[32m%s\t%-16s\t%s\033[0m\n' "---" "-----" "----"
+    if [ "$#" -gt 0 ]; then
+        for para in $@
+        do
+            if [ "${para}" = "," ]; then
+                if [ "${path_flag}" = "not_only_path" ]; then
+                    gmpy_cdir_list_mark
+                else
+                    gmpy_cdir_list_mark_only_path
+                fi
+            else
+                if [ "${path_flag}" = "not_only_path" ]; then
+                    gmpy_cdir_ls_one_dir "${para}"
+                else
+                    local path="$(gmpy_cdir_get_path ${para})"
+                    echo "${path}" | grep "^.*/$" &>/dev/null && echo "${path%/*}" || echo "${path}"
+                fi
+            fi
+        done
+    else
+        gmpy_cdir_ls_all_dirs
+    fi
+}
+
+# _setdir <label> <path> [no_print|global]
+# $3 can be that no_print,global
+_setdir() {
+    #get path
+    local path="$(gmpy_cdir_get_absolute_path "$2")"
+    local label="$1"
+
+    if [ "$(gmpy_cdir_is_exited_dir "${path}")" = "no" ]; then
+        echo -e "\033[31m${path} is not existed\033[0m"
+        return 2
+    fi
+
+    if [ "$(gmpy_cdir_check_label "${label}")" = "no" ];then
+        echo -en "\033[31mlabel error: \033[0m"
+        echo "label starts with a letter and is a combination of letters, numbers and '${gmpy_cdir_label_symbol}'"
+        return 1
+    fi
+
+    label="$(gmpy_cdir_change_label_symbol "${gmpy_cdir_label_symbol}" '_' "${label}")"
+
+    #get var
+    local var="$(gmpy_cdir_get_env_from_label "${label}" | head -n 1)"
+    if [ -n "${var}" ]; then
+        echo "$3" | grep -w "no_print" &>/dev/null || echo -en "\033[31mmodify:\033[0m\t"
+        var="${var%%=*}"
+    else
+        echo "$3" | grep -w "no_print" &>/dev/null || echo -en "\033[31mcreate:\033[0m\t"
+        gmpy_cdir_add_num_cnt
+        var="${gmpy_cdir_prefix}_$(gmpy_cdir_get_num_cnt)_${label}"
+    fi
+
+    if [ -n "${path}" ] && [ -n "${var}" ]; then
+        if echo "$3" | grep -w "global" &>/dev/null; then
+            gmpy_cdir_clear_global_label_from_label "$1"
+            gmpy_cdir_set_dir_defalut "$1" "${path}"
+            echo -en "\033[33m[global] \033[0m"
+        fi
+        gmpy_cdir_set_env "${var}" "${path}"
+        echo "$3" | grep -w "no_print" &>/dev/null || gmpy_cdir_ls_format "$(gmpy_cdir_get_env_from_label "${label}" | head -n 1)"
+    fi
+}
+
+# _cldir <no_global|global> <num1|label1|path1> <num2|label2|path2> ...
+_cldir() {
+    local global_flag="$1"
+    shift
+
+    for para in $@
+    do
+        if [ "${para}" = "," ]; then
+            gmpy_cdir_clear_mark
+        else
+            case "$(gmpy_cdir_check_type "${para}")" in
+                "num")
+                    gmpy_cdir_clear_dir_from_num ${global_flag} "${para}"
+                    ;;
+                "label")
+                    gmpy_cdir_clear_dir_from_label ${global_flag} "${para}"
+                    ;;
+                "path")
+                    gmpy_cdir_clear_dir_from_path ${global_flag} "${para}"
+                    ;;
+            esac
+        fi
+    done
+}
+
 # gmpy_cdir_change_label_symbol <from-symbol> <to-symbol> <label>
 gmpy_cdir_change_label_symbol() {
     case "$1" in
@@ -698,48 +807,6 @@ gmpy_cdir_get_absolute_path() {
     fi
 }
 
-# _setdir <label> <path> [no_print|global]
-# $3 can be that no_print,global
-_setdir() {
-    #get path
-    local path="$(gmpy_cdir_get_absolute_path "$2")"
-    local label="$1"
-
-    if [ "$(gmpy_cdir_is_exited_dir "${path}")" = "no" ]; then
-        echo -e "\033[31m${path} is not existed\033[0m"
-        return 2
-    fi
-
-    if [ "$(gmpy_cdir_check_label "${label}")" = "no" ];then
-        echo -en "\033[31mlabel error: \033[0m"
-        echo "label starts with a letter and is a combination of letters, numbers and '${gmpy_cdir_label_symbol}'"
-        return 1
-    fi
-
-    label="$(gmpy_cdir_change_label_symbol "${gmpy_cdir_label_symbol}" '_' "${label}")"
-
-    #get var
-    local var="$(gmpy_cdir_get_env_from_label "${label}" | head -n 1)"
-    if [ -n "${var}" ]; then
-        echo "$3" | grep -w "no_print" &>/dev/null || echo -en "\033[31mmodify:\033[0m\t"
-        var="${var%%=*}"
-    else
-        echo "$3" | grep -w "no_print" &>/dev/null || echo -en "\033[31mcreate:\033[0m\t"
-        gmpy_cdir_add_num_cnt
-        var="${gmpy_cdir_prefix}_$(gmpy_cdir_get_num_cnt)_${label}"
-    fi
-
-    if [ -n "${path}" ] && [ -n "${var}" ]; then
-        if echo "$3" | grep -w "global" &>/dev/null; then
-            gmpy_cdir_clear_global_label_from_label "$1"
-            gmpy_cdir_set_dir_defalut "$1" "${path}"
-            echo -en "\033[33m[global] \033[0m"
-        fi
-        gmpy_cdir_set_env "${var}" "${path}"
-        echo "$3" | grep -w "no_print" &>/dev/null || gmpy_cdir_ls_format "$(gmpy_cdir_get_env_from_label "${label}" | head -n 1)"
-    fi
-}
-
 # gmpy_cdir_clear_global_label_from_label <label1> <label2> ...
 # enable more than one parameters
 gmpy_cdir_clear_global_label_from_label() {
@@ -757,48 +824,6 @@ gmpy_cdir_clear_global_label_from_label() {
 # gmpy_cdir_set_dir_defalut <label> <path>
 gmpy_cdir_set_dir_defalut() {
     echo "$1=${path}" >> ~/.cdir_default
-}
-
-# _cdir <label|num|path> [num|label|path](point out the type)
-_cdir() {
-    if [ -n "$2" ]; then
-        echo "$(gmpy_cdir_get_path "$1" "$2")"
-    else
-        if [ "`gmpy_cdir_is_exited_dir "$1"`" = "yes" ]; then
-            echo "$1"
-            return 0
-        fi
-
-        echo "$(gmpy_cdir_get_path "$1")"
-    fi
-}
-
-# _lsdir <only_path|not_only_path> [num1|label1|path1] [num2|label2|path2] ...
-_lsdir() {
-    local path_flag="$1" && shift
-    [ "${path_flag}" = "not_only_path" ] && printf '\033[32m%s\t%-16s\t%s\033[0m\n' "num" "label" "path"
-    [ "${path_flag}" = "not_only_path" ] && printf '\033[32m%s\t%-16s\t%s\033[0m\n' "---" "-----" "----"
-    if [ "$#" -gt 0 ]; then
-        for para in $@
-        do
-            if [ "${para}" = "," ]; then
-                if [ "${path_flag}" = "not_only_path" ]; then
-                    gmpy_cdir_list_mark
-                else
-                    gmpy_cdir_list_mark_only_path
-                fi
-            else
-                if [ "${path_flag}" = "not_only_path" ]; then
-                    gmpy_cdir_ls_one_dir "${para}"
-                else
-                    local path="$(gmpy_cdir_get_path ${para})"
-                    echo "${path}" | grep "^.*/$" &>/dev/null && echo "${path%/*}" || echo "${path}"
-                fi
-            fi
-        done
-    else
-        gmpy_cdir_ls_all_dirs
-    fi
 }
 
 # gmpy_cdir_ls_all_dirs
@@ -856,10 +881,10 @@ gmpy_cdir_ls_one_dir() {
 
 # gmpy_cdir_ls_format <env>
 gmpy_cdir_ls_format() {
-    if [ ! "${1:0:9}" = "${gmpy_cdir_prefix}" ]; then 
+    if [ ! "${1:0:9}" = "${gmpy_cdir_prefix}" ]; then
         return 1
     fi
-    
+
     local num="$(gmpy_cdir_get_num_from_env "$1")"
     local label="$(gmpy_cdir_change_label_symbol '_' "${gmpy_cdir_label_symbol}" "$(gmpy_cdir_get_label_from_env "$1")")"
     local path="$(gmpy_cdir_get_path_from_env "$1")"
@@ -898,31 +923,6 @@ gmpy_cdir_get_label_from_env() {
 # gmpy_cdir_get_path_from_env <gmpy_cdir_num_label=path>
 gmpy_cdir_get_path_from_env() {
     echo "${1##*=}"
-}
-
-# _cldir <no_global|global> <num1|label1|path1> <num2|label2|path2> ...
-_cldir() {
-    local global_flag="$1"
-    shift
-
-    for para in $@
-    do
-        if [ "${para}" = "," ]; then
-            gmpy_cdir_clear_mark
-        else
-            case "$(gmpy_cdir_check_type "${para}")" in
-                "num")
-                    gmpy_cdir_clear_dir_from_num ${global_flag} "${para}"
-                    ;;
-                "label")
-                    gmpy_cdir_clear_dir_from_label ${global_flag} "${para}"
-                    ;;
-                "path")
-                    gmpy_cdir_clear_dir_from_path ${global_flag} "${para}"
-                    ;;
-            esac
-        fi
-    done
 }
 
 # gmpy_cdir_get_var_from_env <env>
