@@ -1,24 +1,18 @@
 #!/bin/bash
 
-# the symbol of label
-# suggest to . or _ or -
-# the symbols follows is tested ok:
-# _ - =
-gmpy_cdirs_label_symbol='-'
-
-cdir_options_list="hn:l:p:"
+cdir_options_list="hn:l:p:k:f:"
 lsdir_options_list="hp:"
 cldir_options_list="gha"
 setdir_options_list="hg"
 
-cdir_options_list_full="reload,reset,num:,label:,path:,help"
+cdir_options_list_full="reload,reset,num:,label:,path:,help,key:,find:"
 lsdir_options_list_full="path:,help"
 cldir_options_list_full="all,reset,help,reload,global"
 setdir_options_list_full="global,help"
 init_options_list_full="replace-cd,help"
 
 cdir() {
-    local flag word opts
+    local flag word opts key _find
 
     opts="$(getopt -l "${cdir_options_list_full}" -o "${cdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
@@ -51,6 +45,7 @@ cdir() {
                 break
                 ;;
             --reload)
+                gmpy_cdirs_load_config
                 gmpy_cdirs_load_global_labels
                 return 0
                 ;;
@@ -58,11 +53,58 @@ cdir() {
                 gmpy_cdirs_reset
                 return 0
                 ;;
+            -k|--key)
+                shift
+                key="$1"
+                shift
+                ;;
+            -f|--find)
+                shift
+                _find="$1"
+                shift
+                ;;
             --)
                 shift
                 break
         esac
     done
+
+    # -f|--find
+    if [ -n "${_find}" ]; then
+        [ -z "${key}" -a -n "${gmpy_cdirs_default_key}" ] && key="${gmpy_cdirs_default_key}"
+        [ -z "${key}" ] && return 0
+        local f_result=($(gmpy_cdirs_find_dir_from_key "${key}" "${_find}"))
+        local f_cnt=${#f_result[@]}
+
+        if [ "${f_cnt}" -gt "1" ]; then
+            while true
+            do
+                local cnt=0
+                local result
+                echo "Which one you want:"
+                for result in ${f_result[@]}
+                do
+                    echo "${cnt}: ${result}"
+                    cnt="$(( ${cnt} + 1 ))"
+                done
+                read -p "Your choice: " cnt
+                [ "${cnt}" -gt "${f_cnt}" ] && continue
+                echo -e "\033[31m${f_result[cnt]}\033[0m"
+                gmpy_cdirs_replace_cd "${f_result[cnt]}"
+                unset gmpy_cdirs_complete_dirs
+                unset gmpy_cdirs_complete_key
+                break
+            done
+        elif [ "${f_cnt}" -eq "1" ]; then
+            echo -e "\033[31m${f_result}\033[0m"
+            gmpy_cdirs_replace_cd "${f_result}"
+            unset gmpy_cdirs_complete_dirs
+            unset gmpy_cdirs_complete_key
+        else
+            echo "Can't find ${_find}"
+        fi
+        return 0
+    fi
 
     if [ -n "${flag}" ]; then
         gmpy_cdirs_replace_cd "$(_cdir "${word}" "${flag}")"
@@ -261,8 +303,13 @@ _setdir() {
     fi
 
     gmpy_cdirs_check_label "$1" || {
-        echo -en "\033[31mERROR: label fromat\033[0m"
-        echo "label starts with letter and combinates with letter, number and symbol '${gmpy_cdirs_label_symbol}'"
+        echo -en "\033[31mERROR: label fromat\n\033[0m"
+        echo -n "label starts with "
+        [ -n "${gmpy_cdirs_first_symbol}" ] \
+            && echo -n "'${gmpy_cdirs_first_symbol}'" \
+            || echo -n "letter"
+        echo -n " and combinates with letter, number and symbol "
+        echo "'${gmpy_cdirs_label_symbol}'"
         return 1
     }
 
@@ -489,7 +536,7 @@ gmpy_cdirs_check_type() {
 # gmpy_cdirs_check_label <label>
 gmpy_cdirs_check_label() {
     [ -n "$(echo "$1" \
-        | egrep "^[[:alpha:]]([[:alnum:]]*${gmpy_cdirs_label_symbol}*[[:alnum:]]*)*$")" ] \
+        | egrep "^${gmpy_cdirs_first_symbol}[[:alpha:]]([[:alnum:]]*${gmpy_cdirs_label_symbol}*[[:alnum:]]*)*$")" ] \
         && return 0 || return 1
 }
 
@@ -616,6 +663,7 @@ gmpy_cdirs_set_env() {
 gmpy_cdirs_reset() {
     gmpy_cdirs_clear_all
     gmpy_cdirs_cnt=1
+    gmpy_cdirs_load_config
     gmpy_cdirs_load_global_labels
 }
 
@@ -647,6 +695,7 @@ gmpy_cdirs_print_help() {
         cdir)
             echo -e "\033[33mcdir [-h|--help] [--reload] [--reset] [num|label|path]\033[0m"
             echo -e "\033[33mcdir [<-n|--num> <num>] [<-l|--label|> <label>] [<-p|--path> <path>]\033[0m"
+            echo -e "\033[33mcdir [-f|--find <dir> [-k|--key <key>]]\033[0m"
             echo -e "\033[33mcdir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32mcdir <num|label|path> :\033[0m"
@@ -665,6 +714,10 @@ gmpy_cdirs_print_help() {
             echo -e "    reload ~/.cdir_default, which record the static label-path\n"
             echo -e "\033[32mcdir [--reset] :\033[0m"
             echo -e "    clear all label-path and reload ~/.cdir_default, which record the static label-path\n"
+            echo -e "\033[32mcdir [-f|--find <dir> [-k|--key <key>]]\033[0m"
+            echo -e "    search dir in key-path. use -k|--key to appoint key or use default key\n"
+            echo -e "    you can set your key and key-path in ~/.cdirsrc with variable gmpy_cdirs_default_key and gmpy_cdirs_key\n"
+            echo -e "    you can also set search max deepth by variable gmpy_cdirs_search_max_deepth\n"
             echo -e "\033[31mNote: cdir is a superset of cd, so you can use it as cd too (In fact, my support for this scripts is to replace cd)\033[0m"
             ;;
         setdir)
@@ -681,7 +734,12 @@ gmpy_cdirs_print_help() {
             echo -e "    show this introduction\n"
             echo -e "\033[32msetdir [-g|--global] <label> <path> :\033[0m"
             echo -e "    set label to path, moreover, record it in ~/.cdir_default. In this way, you can set this label-path automatically everytimes you run a terminal\n"
-            echo -e "\033[31mNote: label starts with a letter and is a combination of letters, numbers and '${gmpy_cdirs_label_symbol}'\033[0m"
+            echo -en "\033[31mNote: label starts with "
+            [ -n "${gmpy_cdirs_first_symbol}" ] \
+                && echo -n "'${gmpy_cdirs_first_symbol}'" \
+                || echo -n "letter"
+            echo -n " and combinates with letter, number and symbol "
+            echo -e "'${gmpy_cdirs_label_symbol}'\033[0m"
             ;;
         cldir)
             echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] [--reset] [--reload] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
@@ -721,6 +779,11 @@ gmpy_cdirs_print_help() {
 
 #================ basical ================#
 
+#gmpy_cdirs_load_config
+gmpy_cdirs_load_config() {
+    [ -f ~/.cdirsrc ] && source ~/.cdirsrc
+}
+
 # gmpy_cdirs_replace_cd <path>
 gmpy_cdirs_replace_cd() {
     if [ -n "$*" ]; then
@@ -753,8 +816,11 @@ gmpy_cdirs_init() {
         esac
     done
 
-    gmpy_cdirs_env="/tmp/cdirs/cdirs.env.$$" && touch ${gmpy_cdirs_env}
-    gmpy_cdirs_default="${HOME}/.cdirs_default"
+    gmpy_cdirs_load_config
+    gmpy_cdirs_env="/tmp/cdirs/cdirs.env.$$" \
+        && touch ${gmpy_cdirs_env}
+    [ -z "${gmpy_cdirs_default}" ] \
+        && gmpy_cdirs_default="${HOME}/.cdirs_default"
     gmpy_cdirs_load_global_labels &>/dev/null
 
     complete -F gmpy_cdirs_complete_func -o dirnames "setdir" "lsdir" "cldir"
@@ -804,6 +870,31 @@ gmpy_cdirs_complete_func() {
                 "-p"|"--path")
                     complete_list=
                     ;;
+                "-k"|"--key")
+                    complete_list="$(gmpy_cdirs_get_all_key)"
+                    ;;
+                "-f"|"--find")
+                    local key opt cnt
+                    cnt=0
+                    for opt in ${COMP_WORDS[@]}
+                    do
+                        cnt=$(( ${cnt} + 1 ))
+                        [ "${opt}" = "-k" ] && break
+                    done
+                    key="${COMP_WORDS[cnt]}"
+                    [ -z "${key}" -a -n "${gmpy_cdirs_default_key}" ] && key="${gmpy_cdirs_default_key}"
+                    [ -n "${key}" ] && {
+
+                        [ "${key}" = "${gmpy_cdirs_complete_key}" \
+                            -a -n "${gmpy_cdirs_complete_dirs}" ] \
+                            && complete_list="${gmpy_cdirs_complete_dirs}"
+
+                        complete_list="${complete_list:-$(gmpy_cdirs_get_all_dirs_from_key ${key})}"
+
+                        gmpy_cdirs_complete_dirs="${complete_list}"
+                        gmpy_cdirs_complete_key="${key}"
+                    }
+                    ;;
                 *)
                     if [ "${cur:0:2}" = "--" ]; then
                         complete_list="--$(echo "${cdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
@@ -817,6 +908,48 @@ gmpy_cdirs_complete_func() {
         ;;
     esac
     COMPREPLY=($(compgen -W "${complete_list}" -- "${cur}"))
+}
+
+#================ key path ================#
+
+#gmpy_cdirs_get_all_key
+gmpy_cdirs_get_all_key() {
+    [ -n "${gmpy_cdirs_key}" ] \
+        && echo "${gmpy_cdirs_key[@]}" \
+            | sed 's/\;/\n/g' \
+            | awk '{print $1}'
+}
+
+#gmpy_cdirs_get_path_from_key() <key>
+gmpy_cdirs_get_path_from_key() {
+    [ -n "${gmpy_cdirs_key}" ] \
+        && echo "${gmpy_cdirs_key[@]}" \
+            | sed 's/\;/\n/g' \
+            | eval "awk '\$1~/^$1\$/{print \$3}'"
+}
+
+#gmpy_cdirs_find_dir_from_key <key> <dir>
+gmpy_cdirs_find_dir_from_key() {
+    local cmd kpath
+    kpath="$(gmpy_cdirs_get_path_from_key $1)"
+    [ -z "${kpath}" ] && return 0
+
+    cmd="$([ -n "${gmpy_cdirs_search_max_deepth}" ] \
+            && echo "-maxdepth ${gmpy_cdirs_search_max_deepth}")"
+    cmd="find ${kpath} ${cmd} -name \"${2}\" -type d 2>/dev/null"
+    echo $(eval "${cmd}")
+}
+
+#gmpy_cdirs_get_all_dirs_from_key <key>
+gmpy_cdirs_get_all_dirs_from_key() {
+    local cmd kpath
+    kpath="$(gmpy_cdirs_get_path_from_key $1)"
+    [ -z "${kpath}" ] && return 0
+
+    cmd="$([ -n "${gmpy_cdirs_search_max_deepth}" ] \
+            && echo "-maxdepth ${gmpy_cdirs_search_max_deepth}")"
+    cmd="find ${kpath} ${cmd} -type d 2>/dev/null | xargs -I {} basename {}"
+    echo $(eval "${cmd}")
 }
 
 gmpy_cdirs_init $@

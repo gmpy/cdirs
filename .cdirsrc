@@ -1,0 +1,23 @@
+###################################################
+#   label format                                  #
+###################################################
+#   eg. ,work-1
+gmpy_cdirs_first_symbol=','
+gmpy_cdirs_label_symbol='-'
+
+
+###################################################
+#   system config                                 #
+###################################################
+gmpy_cdirs_default="${HOME}/.cdirs_default"
+
+
+###################################################
+#   key path                                      #
+###################################################
+gmpy_cdirs_search_max_deepth=2
+gmpy_cdirs_default_key="project"
+gmpy_cdirs_key=(
+"project    = ${PROJECT_A}/lichee;"
+"bugs       = ${HOME}/bugs"
+)
