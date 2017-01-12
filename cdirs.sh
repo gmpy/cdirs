@@ -723,16 +723,11 @@ gmpy_cdirs_print_help() {
 
 # gmpy_cdirs_replace_cd <path>
 gmpy_cdirs_replace_cd() {
-    local alias_cd="$(alias | grep "cd=.*$" | awk '{print $2}')"
-    [ -n "${alias_cd}" ] && unalias cd
-    if [ "$(type -t cd)" = "builtin" ]; then
-        if [ -n "$*" ]; then
-            eval cd "$*"
-        else
-            cd
-        fi
+    if [ -n "$*" ]; then
+        builtin cd "$*"
+    else
+        builtin cd
     fi
-    [ -n "${alias_cd}" ] && eval alias "${alias_cd}"
 }
 
 gmpy_cdirs_init() {
