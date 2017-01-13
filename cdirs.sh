@@ -837,7 +837,7 @@ gmpy_cdirs_init() {
 
     gmpy_cdirs_load_config
     gmpy_cdirs_env="/tmp/cdirs/cdirs.env.$$" \
-        && mkdir -p /tmp/cdirs \
+        && mkdir -p /tmp/cdirs -m 777\
         && touch ${gmpy_cdirs_env}
     [ -z "${gmpy_cdirs_default}" ] \
         && gmpy_cdirs_default="${HOME}/.cdirs_default"
