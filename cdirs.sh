@@ -387,6 +387,7 @@ gmpy_cdirs_add_num_cnt() {
 #================ mark ================#
 # gmpy_cdirs_set_mark
 gmpy_cdirs_set_mark() {
+    [ -r "${gmpy_cdirs_env}" -a -w "${gmpy_cdirs_env}" ] || return 1
     if grep "^0 " ${gmpy_cdirs_env} &>/dev/null; then
         gmpy_cdirs_clear_dir "no_global" "0" &>/dev/null
         echo -en "\033[31mmodify:\033[0m\t"
@@ -413,50 +414,59 @@ gmpy_cdirs_clear_mark() {
 
 # gmpy_cdirs_get_path_from_num <num>
 gmpy_cdirs_get_path_from_num() {
-    eval "awk '\$1~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
+    [ -r "${gmpy_cdirs_env}" ] \
+        && eval "awk '\$1~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
 }
 
 # gmpy_cdirs_get_path_from_label <label>
 gmpy_cdirs_get_path_from_label() {
-    eval "awk '\$2~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
+    [ -r "${gmpy_cdirs_env}" ] \
+        && eval "awk '\$2~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
 }
 
 # gmpy_cdirs_get_label_from_num <num>
 gmpy_cdirs_get_label_from_num() {
-    eval "awk '\$1~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
+    [ -r "${gmpy_cdirs_env}" ] \
+        && eval "awk '\$1~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
 }
 
 # gmpy_cdirs_get_num_from_label <label>
 gmpy_cdirs_get_num_from_label() {
-    eval "awk '\$2~/^$1$/{print \$1}' ${gmpy_cdirs_env}"
+    [ -r "${gmpy_cdirs_env}" ] \
+        && eval "awk '\$2~/^$1$/{print \$1}' ${gmpy_cdirs_env}"
 }
 
 # gmpy_cdirs_get_env_from_num <num>
 gmpy_cdirs_get_env_from_num() {
-    eval "awk '\$1~/^$1$/{print \$1 \" \" \$2 \" \" \$3}' ${gmpy_cdirs_env}"
+    [ -r "${gmpy_cdirs_env}" ] \
+        && eval "awk '\$1~/^$1$/{print \$1 \" \" \$2 \" \" \$3}' ${gmpy_cdirs_env}"
 }
 
 # gmpy_cdirs_get_env_from_path <path>
 # allow more than one envs
 gmpy_cdirs_get_env_from_path() {
-    egrep "$1/?$" ${gmpy_cdirs_env} | sort -k 1 -n | awk '{print $1 " " $2 " " $3}'
+    [ -r "${gmpy_cdirs_env}" ] \
+        && egrep "$1/?$" ${gmpy_cdirs_env} | sort -k 1 -n | awk '{print $1 " " $2 " " $3}'
 }
 
 # gmpy_cdirs_get_env_from_label <label>
 # enable echo more than one env if input regular expression
 gmpy_cdirs_get_env_from_label() {
-    eval "awk '\$2~/^$1$/{print \$1 \" \" \$2 \" \" \$3}' ${gmpy_cdirs_env}" \
-        | sort -k 1 -n
+    [ -r "${gmpy_cdirs_env}" ] \
+        && eval "awk '\$2~/^$1$/{print \$1 \" \" \$2 \" \" \$3}' ${gmpy_cdirs_env}" \
+            | sort -k 1 -n
 }
 
 # gmpy_cdirs_get_all_num
 gmpy_cdirs_get_all_num() {
-    awk '{print $1}' ${gmpy_cdirs_env}
+    [ -r "${gmpy_cdirs_env}" ] \
+        && awk '{print $1}' ${gmpy_cdirs_env}
 }
 
 # gmpy_cdirs_get_all_label
 gmpy_cdirs_get_all_label() {
-    awk '($2!~/^,$/ && $1!~/^$/){print $2}' ${gmpy_cdirs_env}
+    [ -r "${gmpy_cdirs_env}" ] \
+        && awk '($2!~/^,$/ && $1!~/^$/){print $2}' ${gmpy_cdirs_env}
 }
 
 # gmpy_cdirs_get_path <label|num|path> [num|label|path](point out the type)
@@ -561,6 +571,7 @@ gmpy_cdirs_check_label() {
 
 #gmpy_cdirs_check_label_existed <num|label>
 gmpy_cdirs_check_label_existed() {
+    [ -r "${gmpy_cdirs_env}" ] || return 1
     case "$(gmpy_cdirs_check_type "$1")" in
         "label")
             grep " $1 " ${gmpy_cdirs_env} &>/dev/null && return 0 || return 1
@@ -580,6 +591,7 @@ gmpy_cdirs_check_label_existed() {
 gmpy_cdirs_ls_all_dirs() {
     local oIFS line
 
+    [ -r "${gmpy_cdirs_env}" ] || return 1
     oIFS="${IFS}"
     IFS=$'\n'
     for line in $(grep -v "^$" ${gmpy_cdirs_env} | sort -k 1 -n)
@@ -653,6 +665,7 @@ gmpy_cdirs_clear_dir() {
         gmpy_cdirs_clear_global_label_from_label "${label}" \
             && echo -ne "\033[33m[global]\033[0m"
     }
+    [ -r "${gmpy_cdirs_env}" -a -w "${gmpy_cdirs_env}" ] || return 1
     eval "sed -i '/^${num} /d' ${gmpy_cdirs_env}"
     gmpy_cdirs_ls_format ${env}
 }
@@ -660,7 +673,8 @@ gmpy_cdirs_clear_dir() {
 # gmpy_cdirs_clear_all [no_global|global]
 gmpy_cdirs_clear_all() {
     [ "$1" = "global" ] && echo > ${gmpy_cdirs_default}
-    echo > ${gmpy_cdirs_env}
+    [ -w "${gmpy_cdirs_env}" ] \
+        && echo > ${gmpy_cdirs_env}
 }
 
 #================ SET path\label\num ================#
@@ -674,7 +688,8 @@ gmpy_cdirs_set_global_dir() {
 gmpy_cdirs_set_env() {
     [ "$1" = "global" ] \
         && gmpy_cdirs_set_global_dir "$3" "$4" && echo -ne "\033[33m[global]\033[0m"
-    echo "$2 $3 $4" >> ${gmpy_cdirs_env}
+    [ -w "${gmpy_cdirs_env}" ] \
+        && echo "$2 $3 $4" >> ${gmpy_cdirs_env}
 }
 
 # gmpy_cdirs_reset
