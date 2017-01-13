@@ -1,11 +1,11 @@
 #!/bin/bash
 
-cdir_options_list="hn:l:p:k:f:"
+cdir_options_list="hn:l:p:k:t:f:"
 lsdir_options_list="hp:"
 cldir_options_list="gha"
 setdir_options_list="hg"
 
-cdir_options_list_full="reload,reset,num:,label:,path:,help,key:,find:"
+cdir_options_list_full="reload,reset,num:,label:,path:,help,key:tag:,find:"
 lsdir_options_list_full="path:,help"
 cldir_options_list_full="all,reset,help,reload,global"
 setdir_options_list_full="global,help"
@@ -53,7 +53,7 @@ cdir() {
                 gmpy_cdirs_reset
                 return 0
                 ;;
-            -k|--key)
+            -k|--key|-t|--tag)
                 shift
                 key="$1"
                 shift
@@ -870,7 +870,7 @@ gmpy_cdirs_complete_func() {
                 "-p"|"--path")
                     complete_list=
                     ;;
-                "-k"|"--key")
+                "-k"|"--key"|"-t"|"--tag")
                     complete_list="$(gmpy_cdirs_get_all_key)"
                     ;;
                 "-f"|"--find")
@@ -879,7 +879,10 @@ gmpy_cdirs_complete_func() {
                     for opt in ${COMP_WORDS[@]}
                     do
                         cnt=$(( ${cnt} + 1 ))
-                        [ "${opt}" = "-k" ] && break
+                        [ "${opt}" = "-k" \
+                            -o "${opt}" = "-t" \
+                            -o "${opt}" = "--key" \
+                            -o "${opt}" = "--tag" ] && break
                     done
                     key="${COMP_WORDS[cnt]}"
                     [ -z "${key}" -a -n "${gmpy_cdirs_default_key}" ] && key="${gmpy_cdirs_default_key}"
