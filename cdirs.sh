@@ -5,7 +5,7 @@ lsdir_options_list="hp:"
 cldir_options_list="gha"
 setdir_options_list="hg"
 
-cdir_options_list_full="reload,reset,num:,label:,path:,help,key:tag:,find:"
+cdir_options_list_full="reload,reset,num:,label:,path:,help,key:tag:,find:,default-key:,find-maxdepth:"
 lsdir_options_list_full="path:,help"
 cldir_options_list_full="all,reset,help,reload,global"
 setdir_options_list_full="global,help"
@@ -61,6 +61,22 @@ cdir() {
             -f|--find)
                 shift
                 _find="$1"
+                shift
+                ;;
+            --default-key)
+                shift
+                gmpy_cdirs_set_default_key "$1" || {
+                    echo "no key: $1"
+                    return 1
+                }
+                shift
+                ;;
+            --find-maxdepth)
+                shift
+                gmpy_cdirs_set_find_maxdepth "$1" || {
+                    echo "not num for maxdepth : $1"
+                    return 1
+                }
                 shift
                 ;;
             --)
@@ -717,7 +733,7 @@ gmpy_cdirs_print_help() {
             echo -e "\033[32mcdir [-f|--find <dir> [-k|--key <key>]]\033[0m"
             echo -e "    search dir in key-path. use -k|--key to appoint key or use default key\n"
             echo -e "    you can set your key and key-path in ~/.cdirsrc with variable gmpy_cdirs_default_key and gmpy_cdirs_key\n"
-            echo -e "    you can also set search max deepth by variable gmpy_cdirs_search_max_deepth\n"
+            echo -e "    you can also set search max depth by variable gmpy_cdirs_search_max_depth\n"
             echo -e "\033[31mNote: cdir is a superset of cd, so you can use it as cd too (In fact, my support for this scripts is to replace cd)\033[0m"
             ;;
         setdir)
@@ -915,6 +931,18 @@ gmpy_cdirs_complete_func() {
 
 #================ key path ================#
 
+#gmpy_cdirs_set_find_maxdepth <num>
+gmpy_cdirs_set_find_maxdepth() {
+    echo "$1" | egrep "^[[:digit:]]+$" &>/dev/null \
+        && gmpy_cdirs_search_max_depth="$1" || return 1
+}
+
+#gmpy_cdirs_set_default_key <key>
+gmpy_cdirs_set_default_key() {
+    gmpy_cdirs_get_all_key | grep -w "$1" &>/dev/null \
+        && gmpy_cdirs_default_key="$1" || return 1
+}
+
 #gmpy_cdirs_get_all_key
 gmpy_cdirs_get_all_key() {
     [ -n "${gmpy_cdirs_key}" ] \
@@ -937,8 +965,8 @@ gmpy_cdirs_find_dir_from_key() {
     kpath="$(gmpy_cdirs_get_path_from_key $1)"
     [ -z "${kpath}" ] && return 0
 
-    cmd="$([ -n "${gmpy_cdirs_search_max_deepth}" ] \
-            && echo "-maxdepth ${gmpy_cdirs_search_max_deepth}")"
+    cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
+            && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
     cmd="find ${kpath} ${cmd} -name \"${2}\" -type d 2>/dev/null"
     echo $(eval "${cmd}")
 }
@@ -949,8 +977,8 @@ gmpy_cdirs_get_all_dirs_from_key() {
     kpath="$(gmpy_cdirs_get_path_from_key $1)"
     [ -z "${kpath}" ] && return 0
 
-    cmd="$([ -n "${gmpy_cdirs_search_max_deepth}" ] \
-            && echo "-maxdepth ${gmpy_cdirs_search_max_deepth}")"
+    cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
+            && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
     cmd="find ${kpath} ${cmd} -type d 2>/dev/null | xargs -I {} basename {}"
     echo $(eval "${cmd}")
 }
