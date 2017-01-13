@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# config file
+gmpy_cdirs_config="~/.cdirsrc"
+
 cdir_options_list="hn:l:p:k:t:f:"
 lsdir_options_list="hp:"
 cldir_options_list="gha"
@@ -797,7 +800,7 @@ gmpy_cdirs_print_help() {
 
 #gmpy_cdirs_load_config
 gmpy_cdirs_load_config() {
-    [ -f ~/.cdirsrc ] && source ~/.cdirsrc
+    [ -f "${gmpy_cdirs_config}" ] && source ${gmpy_cdirs_config}
 }
 
 # gmpy_cdirs_replace_cd <path>
