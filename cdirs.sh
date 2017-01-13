@@ -69,18 +69,18 @@ cdir() {
             --default-key)
                 shift
                 gmpy_cdirs_set_default_key "$1" || {
-                    echo "no key: $1"
+                    echo "$1: no this key"
                     return 1
                 }
-                shift
+                return 0
                 ;;
             --find-maxdepth)
                 shift
                 gmpy_cdirs_set_find_maxdepth "$1" || {
-                    echo "not num for maxdepth : $1"
+                    echo "$1: Invaild input"
                     return 1
                 }
-                shift
+                return 0
                 ;;
             --)
                 shift
