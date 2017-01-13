@@ -100,7 +100,7 @@ cdir() {
             do
                 local cnt=0
                 local result
-                echo "Which one you want:"
+                echo "Which one do you want:"
                 for result in ${f_result[@]}
                 do
                     echo "${cnt}: ${result}"
@@ -317,7 +317,7 @@ _setdir() {
     local num
 
     if [ -z "${path}" -o ! -d ${path} ]; then
-        echo -e "\033[31m${path} isn't existed or diretory\033[0m"
+        echo -e "\033[31m${path} isn't existed or directory\033[0m"
         return 2
     fi
 
