@@ -886,8 +886,11 @@ gmpy_cdirs_complete_func() {
                 "-p"|"--path")
                     complete_list=
                     ;;
-                "-k"|"--key"|"-t"|"--tag")
+                "-k"|"--key"|"-t"|"--tag"|"--default-key")
                     complete_list="$(gmpy_cdirs_get_all_key)"
+                    ;;
+                "--find-maxdepth")
+                    complete_list=
                     ;;
                 "-f"|"--find")
                     local key opt cnt
