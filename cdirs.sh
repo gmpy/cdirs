@@ -941,7 +941,9 @@ gmpy_cdirs_complete_func() {
                         complete_list="--$(echo "${cdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
                     elif [ "${cur:0:1}" = "-" ]; then
                         complete_list="$(echo "${cdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
-                    else
+                    elif [ -n "${gmpy_cdirs_first_symbol}" -a "${cur:0:1}" = "${gmpy_cdirs_first_symbol}" ]; then
+                        complete_list="$(gmpy_cdirs_get_all_label)"
+                    elif [ -z "${gmpy_cdirs_first_symbol}" ]; then
                         complete_list="$(gmpy_cdirs_get_all_label)"
                     fi
                     ;;
