@@ -15,7 +15,7 @@ setdir_options_list_full="global,help"
 init_options_list_full="replace-cd,help"
 
 cdir() {
-    local flag word opts key f_dirname F_dirname
+    local flag word opts key f_dirname F_dirname find_maxdepth
 
     opts="$(getopt -l "${cdir_options_list_full}" -o "${cdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
@@ -78,18 +78,20 @@ cdir() {
             --default-key)
                 shift
                 gmpy_cdirs_set_default_key "$1" || {
-                    echo "$1: No this key"
+                    echo "$1: No This Key"
                     return 1
                 }
                 return 0
                 ;;
             --find-maxdepth)
                 shift
-                gmpy_cdirs_set_find_maxdepth "$1" || {
-                    echo "$1: Invaild input"
-                    return 1
-                }
-                return 0
+                gmpy_cdirs_check_whether_num "$1" \
+                    && find_maxdepth="$1" \
+                    || {
+                        echo "$1: Invaild Input - Not Num"
+                        return 1
+                    }
+                shift
                 ;;
             --)
                 shift
@@ -97,14 +99,21 @@ cdir() {
         esac
     done
 
+    [ -n "${find_maxdepth}" ] && {
+        [ "$#" -eq 0 -a -z "${f_dirname}" -a -z "${F_dirname}" ] && {
+            gmpy_cdirs_set_find_maxdepth "${find_maxdepth}"
+            return 0
+        }
+    }
+
     # -f|--find|-F|--Find
     if [ -n "${f_dirname}" ]; then
         key=${key:-${gmpy_cdirs_default_key}}
         [ -z "${key}" ] && return 0
-        gmpy_cdirs_cd_find_process "${key}" "${f_dirname}"
+        gmpy_cdirs_cd_find_process "${f_dirname}" "${key}" "${find_maxdepth}"
         return 0
     elif [ -n "${F_dirname}" ]; then
-        gmpy_cdirs_cd_find_process "${F_dirname}"
+        gmpy_cdirs_cd_find_process "${F_dirname}" "${find_maxdepth}"
         return 0
     fi
 
@@ -895,7 +904,9 @@ gmpy_cdirs_complete_func() {
                     complete_list=
                     ;;
                 "-f"|"--find")
-                    local key opt cnt
+                    local key opt cnt find_maxdepth
+
+                    # get key
                     cnt=0
                     for opt in ${COMP_WORDS[@]}
                     do
@@ -905,24 +916,43 @@ gmpy_cdirs_complete_func() {
                             -o "${opt}" = "--key" \
                             -o "${opt}" = "--tag" ] && break
                     done
-                    key="${COMP_WORDS[cnt]}"
-                    [ -z "${key}" -a -n "${gmpy_cdirs_default_key}" ] && key="${gmpy_cdirs_default_key}"
+                    key="${COMP_WORDS[cnt]:-${gmpy_cdirs_default_key}}"
+
+                    # get find_maxdepth
+                    cnt=0
+                    for opt in ${COMP_WORDS[@]}
+                    do
+                        cnt=$(( ${cnt} + 1 ))
+                        [ "${opt}" = "--find-maxdepth" ] && break
+                    done
+                    find_maxdepth="${COMP_WORDS[cnt]}"
+
                     [ -n "${key}" ] && {
                         [ "${key}" = "${gmpy_cdirs_complete_key}" \
                             -a -n "${gmpy_cdirs_complete_dirs}" ] \
                             && complete_list="${gmpy_cdirs_complete_dirs}" \
                             || {
-                                complete_list="$(gmpy_cdirs_get_all_dirs_from_key ${key})"
+                                complete_list="$(gmpy_cdirs_get_all_dirs_from_key "${key}" "${find_maxdepth}")"
                                 gmpy_cdirs_complete_dirs="${complete_list}"
                                 gmpy_cdirs_complete_key="${key}"
                             }
                     }
                     ;;
                 "-F"|"--Find")
+                    local opt cnt find_maxdepth
+                    # get find_maxdepth
+                    cnt=0
+                    for opt in ${COMP_WORDS[@]}
+                    do
+                        cnt=$(( ${cnt} + 1 ))
+                        [ "${opt}" = "--find-maxdepth" ] && break
+                    done
+                    find_maxdepth="${COMP_WORDS[cnt]}"
+
                     [ -n "${gmpy_cdirs_complete_dirs}" -a -z "${gmpy_cdirs_complete_key}" ] \
                         && complete_list="${gmpy_cdirs_complete_dirs}" \
                         || {
-                            complete_list="$(gmpy_cdirs_get_all_dirs_from_pwd)"
+                            complete_list="$(gmpy_cdirs_get_all_dirs_from_pwd "${find_maxdepth}")"
                             gmpy_cdirs_complete_dirs="${complete_list}"
                             unset gmpy_cdirs_complete_key
                         }
@@ -948,7 +978,7 @@ gmpy_cdirs_complete_func() {
 
 #gmpy_cdirs_set_find_maxdepth <num>
 gmpy_cdirs_set_find_maxdepth() {
-    echo "$1" | egrep "^[[:digit:]]+$" &>/dev/null \
+    gmpy_cdirs_check_whether_num "$1" \
         && gmpy_cdirs_search_max_depth="$1" || return 1
 }
 
@@ -975,26 +1005,32 @@ gmpy_cdirs_get_path_from_key() {
             | eval "awk '\$1~/^$1\$/{print \$3}'"
 }
 
-#gmpy_cdirs_find_dir_from_key <key> <dir>
+#gmpy_cdirs_find_dir_from_key <key> <dir> [find_maxdepth]
 gmpy_cdirs_find_dir_from_key() {
-    local cmd kpath
+    local cmd kpath find_maxdepth
     kpath="$(gmpy_cdirs_get_path_from_key "$1")"
     [ -z "${kpath}" ] && return 0
 
-    cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
-            && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
+    find_maxdepth="${3:-${gmpy_cdirs_search_max_depth}}"
+    gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
+
+    cmd="$([ -n "${find_maxdepth}" ] \
+            && echo "-maxdepth ${find_maxdepth}")"
     cmd="find ${kpath} ${cmd} -name \"${2}\" -type d 2>/dev/null"
     echo $(eval "${cmd}")
 }
 
-#gmpy_cdirs_get_all_dirs_from_key <key>
+#gmpy_cdirs_get_all_dirs_from_key <key> [find_maxdepth]
 gmpy_cdirs_get_all_dirs_from_key() {
-    local cmd kpath
+    local cmd kpath find_maxdepth
     kpath="$(gmpy_cdirs_get_path_from_key $1)"
     [ -z "${kpath}" ] && return 0
 
-    cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
-            && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
+    find_maxdepth="${2:-${gmpy_cdirs_search_max_depth}}"
+    gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
+
+    cmd="$([ -n "${find_maxdepth}" ] \
+            && echo "-maxdepth ${find_maxdepth}")"
     cmd="find ${kpath} ${cmd} -type d 2>/dev/null | xargs -I {} basename {}"
     echo $(eval "${cmd}")
 }
@@ -1008,35 +1044,35 @@ gmpy_cdirs_check_key() {
             | grep -w "${1}" &>/dev/null
 }
 
-#gmpy_cdirs_cd_find_process <key> <dirname>
-#gmpy_cdirs_cd_find_process <dirname>
+#gmpy_cdirs_cd_find_process <dirname> <key> <find_maxdepth>
+#gmpy_cdirs_cd_find_process <dirname> <find_maxdepth>
 gmpy_cdirs_cd_find_process() {
-    local f_result
-    if [ "$#" -gt "1" ]; then
-        f_result=($(gmpy_cdirs_find_dir_from_key "$1" "$2"))
+    local f_result dirname
+    if [ "$#" -gt "2" ]; then
+        f_result=($(gmpy_cdirs_find_dir_from_key "$2" "$1" "$3"))
     else
-        f_result=($(gmpy_cdirs_find_dir_from_pwd "$1"))
+        f_result=($(gmpy_cdirs_find_dir_from_pwd "$1" "$2"))
     fi
     local f_cnt=${#f_result[@]}
 
     if [ "${f_cnt}" -gt "1" ]; then
+        local cnt=0
+        local result
+        echo "Which one do you want:"
+        for result in ${f_result[@]}
+        do
+            echo "${cnt}: ${result}"
+            cnt="$(( ${cnt} + 1 ))"
+        done
         while true
         do
-            local cnt=0
-            local result
-            echo "Which one do you want:"
-            for result in ${f_result[@]}
-            do
-                echo "${cnt}: ${result}"
-                cnt="$(( ${cnt} + 1 ))"
-            done
             read -p "Your choice: " cnt
-            echo "${cnt}" | egrep "^[[:digit:]]+$" &>/dev/null || {
-                echo -e "\033[31m${cnt}: Invaild Input - not num\033[0m"
+            gmpy_cdirs_check_whether_num "${cnt}" || {
+                echo -e "\033[31m${cnt}: Invaild Input - Not Num\033[0m"
                 continue
             }
             [ "${cnt}" -ge "${f_cnt}" ] && {
-                echo -e "\033[31m${cnt}: Invaild Input - error num\033[0m"
+                echo -e "\033[31m${cnt}: Invaild Input - Error Num\033[0m"
                 continue
             }
             echo -e "\033[32m${f_result[cnt]}\033[0m"
@@ -1047,28 +1083,41 @@ gmpy_cdirs_cd_find_process() {
         echo -e "\033[32m${f_result}\033[0m"
         gmpy_cdirs_replace_cd "${f_result}"
     else
-        echo "\033[31mCan't find $2\033[0m"
+        echo -e "\033[31mCan't find $1\033[0m"
     fi
     unset gmpy_cdirs_complete_dirs
     unset gmpy_cdirs_complete_key
 }
 
-#gmpy_cdirs_find_dir_from_pwd <dir>
+#gmpy_cdirs_find_dir_from_pwd <dir> [find_maxdepth]
 gmpy_cdirs_find_dir_from_pwd() {
-    local cmd
-    cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
-            && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
+    local cmd find_maxdepth
+
+    find_maxdepth="${2:-${gmpy_cdirs_search_max_depth}}"
+    gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
+
+    cmd="$([ -n "${find_maxdepth}" ] \
+            && echo "-maxdepth ${find_maxdepth}")"
     cmd="find ${PWD} ${cmd} -name \"${1}\" -type d 2>/dev/null"
     echo $(eval "${cmd}")
 }
 
-#gmpy_cdirs_get_all_dirs_from_pwd
+#gmpy_cdirs_get_all_dirs_from_pwd [find_maxdepth]
 gmpy_cdirs_get_all_dirs_from_pwd() {
-    local cmd
-    cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
-            && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
+    local cmd find_maxdepth
+
+    find_maxdepth="${1:-${gmpy_cdirs_search_max_depth}}"
+    gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
+
+    cmd="$([ -n "${find_maxdepth}" ] \
+            && echo "-maxdepth ${find_maxdepth}")"
     cmd="find ${PWD} ${cmd} -type d 2>/dev/null | xargs -I {} basename {}"
     echo $(eval "${cmd}")
+}
+
+#gmpy_cdirs_check_whether_num <num>
+gmpy_cdirs_check_whether_num() {
+    echo "$1" | egrep "^[[:digit:]]+$" &>/dev/null
 }
 
 gmpy_cdirs_init $@
