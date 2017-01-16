@@ -706,12 +706,12 @@ gmpy_cdirs_reset() {
 # gmpy_cdirs_load_global_labels
 # load default label by ~/.cdir_default
 gmpy_cdirs_load_global_labels() {
-    [ ! -f ${gmpy_cdirs_default} ] && return 2
+    eval "[ ! -f ${gmpy_cdirs_default} ] && return 2"
 
     local line
     local oIFS="${IFS}"
     IFS=$'\n'
-    for line in $(cat ${gmpy_cdirs_default} | egrep -v "^#.*$|^$" | grep "=")
+    for line in $(eval "cat ${gmpy_cdirs_default}" | egrep -v "^#.*$|^$" | grep "=")
     do
         IFS="${oIFS}"
         # Enable path with variable
@@ -815,7 +815,7 @@ gmpy_cdirs_print_help() {
 
 #gmpy_cdirs_load_config
 gmpy_cdirs_load_config() {
-    [ -f "${gmpy_cdirs_config}" ] && source ${gmpy_cdirs_config}
+    eval "[ -f "${gmpy_cdirs_config}" ] && source ${gmpy_cdirs_config}"
 }
 
 # gmpy_cdirs_replace_cd <path>
