@@ -1031,16 +1031,23 @@ gmpy_cdirs_cd_find_process() {
                 cnt="$(( ${cnt} + 1 ))"
             done
             read -p "Your choice: " cnt
-            [ "${cnt}" -gt "${f_cnt}" ] && continue
-            echo -e "\033[31m${f_result[cnt]}\033[0m"
+            echo "${cnt}" | egrep "^[[:digit:]]+$" &>/dev/null || {
+                echo -e "\033[31m${cnt}: Invaild Input - not num\033[0m"
+                continue
+            }
+            [ "${cnt}" -ge "${f_cnt}" ] && {
+                echo -e "\033[31m${cnt}: Invaild Input - error num\033[0m"
+                continue
+            }
+            echo -e "\033[32m${f_result[cnt]}\033[0m"
             gmpy_cdirs_replace_cd "${f_result[cnt]}"
             break
         done
     elif [ "${f_cnt}" -eq "1" ]; then
-        echo -e "\033[31m${f_result}\033[0m"
+        echo -e "\033[32m${f_result}\033[0m"
         gmpy_cdirs_replace_cd "${f_result}"
     else
-        echo "Can't find $2"
+        echo "\033[31mCan't find $2\033[0m"
     fi
     unset gmpy_cdirs_complete_dirs
     unset gmpy_cdirs_complete_key
