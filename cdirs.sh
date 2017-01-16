@@ -3,19 +3,19 @@
 # config file
 gmpy_cdirs_config="~/.cdirsrc"
 
-cdir_options_list="hn:l:p:k:t:f:"
+cdir_options_list="hn:l:p:k:t:f:F:"
 lsdir_options_list="hp:"
 cldir_options_list="gha"
 setdir_options_list="hg"
 
-cdir_options_list_full="reload,reset,num:,label:,path:,help,key:tag:,find:,default-key:,find-maxdepth:"
+cdir_options_list_full="reload,reset,num:,label:,path:,help,key:tag:,find:,Find:,default-key:,find-maxdepth:"
 lsdir_options_list_full="path:,help"
 cldir_options_list_full="all,reset,help,reload,global"
 setdir_options_list_full="global,help"
 init_options_list_full="replace-cd,help"
 
 cdir() {
-    local flag word opts key _find
+    local flag word opts key f_dirname F_dirname
 
     opts="$(getopt -l "${cdir_options_list_full}" -o "${cdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
@@ -58,18 +58,27 @@ cdir() {
                 ;;
             -k|--key|-t|--tag)
                 shift
+                gmpy_cdirs_check_key "${1}" || {
+                    echo "$1: No this key"
+                    return 1
+                }
                 key="$1"
                 shift
                 ;;
             -f|--find)
                 shift
-                _find="$1"
+                f_dirname="$1"
+                shift
+                ;;
+            -F|--Find)
+                shift
+                F_dirname="$1"
                 shift
                 ;;
             --default-key)
                 shift
                 gmpy_cdirs_set_default_key "$1" || {
-                    echo "$1: no this key"
+                    echo "$1: No this key"
                     return 1
                 }
                 return 0
@@ -88,40 +97,14 @@ cdir() {
         esac
     done
 
-    # -f|--find
-    if [ -n "${_find}" ]; then
-        [ -z "${key}" -a -n "${gmpy_cdirs_default_key}" ] && key="${gmpy_cdirs_default_key}"
+    # -f|--find|-F|--Find
+    if [ -n "${f_dirname}" ]; then
+        key=${key:-${gmpy_cdirs_default_key}}
         [ -z "${key}" ] && return 0
-        local f_result=($(gmpy_cdirs_find_dir_from_key "${key}" "${_find}"))
-        local f_cnt=${#f_result[@]}
-
-        if [ "${f_cnt}" -gt "1" ]; then
-            while true
-            do
-                local cnt=0
-                local result
-                echo "Which one do you want:"
-                for result in ${f_result[@]}
-                do
-                    echo "${cnt}: ${result}"
-                    cnt="$(( ${cnt} + 1 ))"
-                done
-                read -p "Your choice: " cnt
-                [ "${cnt}" -gt "${f_cnt}" ] && continue
-                echo -e "\033[31m${f_result[cnt]}\033[0m"
-                gmpy_cdirs_replace_cd "${f_result[cnt]}"
-                unset gmpy_cdirs_complete_dirs
-                unset gmpy_cdirs_complete_key
-                break
-            done
-        elif [ "${f_cnt}" -eq "1" ]; then
-            echo -e "\033[31m${f_result}\033[0m"
-            gmpy_cdirs_replace_cd "${f_result}"
-            unset gmpy_cdirs_complete_dirs
-            unset gmpy_cdirs_complete_key
-        else
-            echo "Can't find ${_find}"
-        fi
+        gmpy_cdirs_cd_find_process "${key}" "${f_dirname}"
+        return 0
+    elif [ -n "${F_dirname}" ]; then
+        gmpy_cdirs_cd_find_process "${F_dirname}"
         return 0
     fi
 
@@ -925,16 +908,24 @@ gmpy_cdirs_complete_func() {
                     key="${COMP_WORDS[cnt]}"
                     [ -z "${key}" -a -n "${gmpy_cdirs_default_key}" ] && key="${gmpy_cdirs_default_key}"
                     [ -n "${key}" ] && {
-
                         [ "${key}" = "${gmpy_cdirs_complete_key}" \
                             -a -n "${gmpy_cdirs_complete_dirs}" ] \
-                            && complete_list="${gmpy_cdirs_complete_dirs}"
-
-                        complete_list="${complete_list:-$(gmpy_cdirs_get_all_dirs_from_key ${key})}"
-
-                        gmpy_cdirs_complete_dirs="${complete_list}"
-                        gmpy_cdirs_complete_key="${key}"
+                            && complete_list="${gmpy_cdirs_complete_dirs}" \
+                            || {
+                                complete_list="$(gmpy_cdirs_get_all_dirs_from_key ${key})"
+                                gmpy_cdirs_complete_dirs="${complete_list}"
+                                gmpy_cdirs_complete_key="${key}"
+                            }
                     }
+                    ;;
+                "-F"|"--Find")
+                    [ -n "${gmpy_cdirs_complete_dirs}" -a -z "${gmpy_cdirs_complete_key}" ] \
+                        && complete_list="${gmpy_cdirs_complete_dirs}" \
+                        || {
+                            complete_list="$(gmpy_cdirs_get_all_dirs_from_pwd)"
+                            gmpy_cdirs_complete_dirs="${complete_list}"
+                            unset gmpy_cdirs_complete_key
+                        }
                     ;;
                 *)
                     if [ "${cur:0:2}" = "--" ]; then
@@ -963,8 +954,9 @@ gmpy_cdirs_set_find_maxdepth() {
 
 #gmpy_cdirs_set_default_key <key>
 gmpy_cdirs_set_default_key() {
-    gmpy_cdirs_get_all_key | grep -w "$1" &>/dev/null \
-        && gmpy_cdirs_default_key="$1" || return 1
+    gmpy_cdirs_check_key "$1" \
+        && gmpy_cdirs_default_key="$1" \
+        || return 1
 }
 
 #gmpy_cdirs_get_all_key
@@ -986,7 +978,7 @@ gmpy_cdirs_get_path_from_key() {
 #gmpy_cdirs_find_dir_from_key <key> <dir>
 gmpy_cdirs_find_dir_from_key() {
     local cmd kpath
-    kpath="$(gmpy_cdirs_get_path_from_key $1)"
+    kpath="$(gmpy_cdirs_get_path_from_key "$1")"
     [ -z "${kpath}" ] && return 0
 
     cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
@@ -1004,6 +996,71 @@ gmpy_cdirs_get_all_dirs_from_key() {
     cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
             && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
     cmd="find ${kpath} ${cmd} -type d 2>/dev/null | xargs -I {} basename {}"
+    echo $(eval "${cmd}")
+}
+
+#gmpy_cdirs_check_key <key>
+gmpy_cdirs_check_key() {
+    [ -n "${gmpy_cdirs_key}" ] \
+        && echo "${gmpy_cdirs_key[@]}" \
+            | sed 's/\;/\n/g' \
+            | awk '{print $1}' \
+            | grep -w "${1}" &>/dev/null
+}
+
+#gmpy_cdirs_cd_find_process <key> <dirname>
+#gmpy_cdirs_cd_find_process <dirname>
+gmpy_cdirs_cd_find_process() {
+    local f_result
+    if [ "$#" -gt "1" ]; then
+        f_result=($(gmpy_cdirs_find_dir_from_key "$1" "$2"))
+    else
+        f_result=($(gmpy_cdirs_find_dir_from_pwd "$1"))
+    fi
+    local f_cnt=${#f_result[@]}
+
+    if [ "${f_cnt}" -gt "1" ]; then
+        while true
+        do
+            local cnt=0
+            local result
+            echo "Which one do you want:"
+            for result in ${f_result[@]}
+            do
+                echo "${cnt}: ${result}"
+                cnt="$(( ${cnt} + 1 ))"
+            done
+            read -p "Your choice: " cnt
+            [ "${cnt}" -gt "${f_cnt}" ] && continue
+            echo -e "\033[31m${f_result[cnt]}\033[0m"
+            gmpy_cdirs_replace_cd "${f_result[cnt]}"
+            break
+        done
+    elif [ "${f_cnt}" -eq "1" ]; then
+        echo -e "\033[31m${f_result}\033[0m"
+        gmpy_cdirs_replace_cd "${f_result}"
+    else
+        echo "Can't find $2"
+    fi
+    unset gmpy_cdirs_complete_dirs
+    unset gmpy_cdirs_complete_key
+}
+
+#gmpy_cdirs_find_dir_from_pwd <dir>
+gmpy_cdirs_find_dir_from_pwd() {
+    local cmd
+    cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
+            && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
+    cmd="find ${PWD} ${cmd} -name \"${1}\" -type d 2>/dev/null"
+    echo $(eval "${cmd}")
+}
+
+#gmpy_cdirs_get_all_dirs_from_pwd
+gmpy_cdirs_get_all_dirs_from_pwd() {
+    local cmd
+    cmd="$([ -n "${gmpy_cdirs_search_max_depth}" ] \
+            && echo "-maxdepth ${gmpy_cdirs_search_max_depth}")"
+    cmd="find ${PWD} ${cmd} -type d 2>/dev/null | xargs -I {} basename {}"
     echo $(eval "${cmd}")
 }
 
