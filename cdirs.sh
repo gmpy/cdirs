@@ -15,7 +15,7 @@ setdir_options_list_full="global,help"
 init_options_list_full="replace-cd,help"
 
 cdir() {
-    local flag word opts key f_dirname F_dirname find_maxdepth
+    local _type label_path opts key f_dir F_dir find_maxdepth
 
     opts="$(getopt -l "${cdir_options_list_full}" -o "${cdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
@@ -27,23 +27,23 @@ cdir() {
                 return 0
                 ;;
             -l|--label)
-                flag="label"
+                _type="label"
                 shift
-                word="$1"
+                label_path="$1"
                 shift
                 break
                 ;;
             -n|--num)
-                flag="num"
+                _type="num"
                 shift
-                word="$1"
+                label_path="$1"
                 shift
                 break
                 ;;
             -p|--path)
-                flag="path"
+                _type="path"
                 shift
-                word="$1"
+                label_path="$1"
                 shift
                 break
                 ;;
@@ -67,12 +67,12 @@ cdir() {
                 ;;
             -f|--find)
                 shift
-                f_dirname="$1"
+                f_dir="$1"
                 shift
                 ;;
             -F|--Find)
                 shift
-                F_dirname="$1"
+                F_dir="$1"
                 shift
                 ;;
             --default-key)
@@ -85,12 +85,14 @@ cdir() {
                 ;;
             --find-maxdepth)
                 shift
-                gmpy_cdirs_check_whether_num "$1" \
-                    && find_maxdepth="$1" \
-                    || {
-                        echo "$1: Invaild Input - Not Num"
-                        return 1
-                    }
+                gmpy_cdirs_check_whether_num "$1" || {
+                    echo "$1: Invaild Input - Not Num"
+                    return 1
+                }
+                [ "$#" -eq 2 -a -z "${f_dir}" -a -z "${F_dir}" ] \
+                    && gmpy_cdirs_set_find_maxdepth "$1" \
+                    && return
+                find_maxdepth="$1"
                 shift
                 ;;
             --)
@@ -99,36 +101,17 @@ cdir() {
         esac
     done
 
-    [ -n "${find_maxdepth}" ] && {
-        [ "$#" -eq 0 -a -z "${f_dirname}" -a -z "${F_dirname}" ] && {
-            gmpy_cdirs_set_find_maxdepth "${find_maxdepth}"
-            return 0
-        }
-    }
+    [ -z "${label_path}" ] && label_path="$*"
 
     # -f|--find|-F|--Find
-    if [ -n "${f_dirname}" ]; then
+    if [ -n "${f_dir}" ]; then
         key=${key:-${gmpy_cdirs_default_key}}
-        [ -z "${key}" ] && return 0
-        gmpy_cdirs_cd_find_process "${f_dirname}" "${key}" "${find_maxdepth}"
-        return 0
-    elif [ -n "${F_dirname}" ]; then
-        gmpy_cdirs_cd_find_process "${F_dirname}" "${find_maxdepth}"
-        return 0
-    fi
-
-    if [ -n "${flag}" ]; then
-        gmpy_cdirs_replace_cd "$(_cdir "${word}" "${flag}")"
-    elif [ "$#" -gt "1" ]; then #for path with space
-        gmpy_cdirs_replace_cd "$*"
-    elif [ "$#" -eq "0" ]; then
-        gmpy_cdirs_replace_cd
-    elif [ "$#" -eq "1" ] && ([ "$1" = "," ] || [ "$1" = '0' ]); then
-        local path="$(gmpy_cdirs_get_path_from_num "0")"
-        [ -z "${path}" ] && return 0
-        gmpy_cdirs_replace_cd "${path}"
+        [ -z "${key}" ] && echo "Invaild Key - No Key" && return 1
+        gmpy_cdirs_cd_find_process "${f_dir}" "${key}" "${find_maxdepth}"
+    elif [ -n "${F_dir}" ]; then
+        gmpy_cdirs_cd_find_process "${F_dir}" "${find_maxdepth}"
     else
-        gmpy_cdirs_replace_cd "$(_cdir "$1")"
+        gmpy_cdirs_builtin_cd "$(_cdir "${label_path}" "${_type}")"
     fi
 }
 
@@ -267,7 +250,8 @@ cldir() {
 
 # _cdir <label|num|path> [num|label|path](point out the type)
 _cdir() {
-    [ -f "$1" -a ! "$2" = "num" -a ! "$2" = "label" ] && {
+    [ -z "$1" ] && return 0
+    [ -d "$1" -a ! "$2" = "num" -a ! "$2" = "label" ] && {
         echo "$1"
         return 0
     }
@@ -316,8 +300,8 @@ _setdir() {
     gmpy_cdirs_check_label "$1" || {
         echo -en "\033[31mERROR: label fromat\n\033[0m"
         echo -n "label starts with "
-        [ -n "${gmpy_cdirs_first_symbol}" ] \
-            && echo -n "'${gmpy_cdirs_first_symbol}'" \
+        [ -n "${gmpy_cdirs_mark_symbol}" ] \
+            && echo -n "'${gmpy_cdirs_mark_symbol}'" \
             || echo -n "letter"
         echo -n " and combinates with letter, number and symbol "
         echo "'${gmpy_cdirs_label_symbol}'"
@@ -557,7 +541,7 @@ gmpy_cdirs_check_type() {
 # gmpy_cdirs_check_label <label>
 gmpy_cdirs_check_label() {
     [ -n "$(echo "$1" \
-        | egrep "^${gmpy_cdirs_first_symbol}[[:alpha:]]([[:alnum:]]*${gmpy_cdirs_label_symbol}*[[:alnum:]]*)*$")" ] \
+        | egrep "^${gmpy_cdirs_mark_symbol}([[:alnum:]]*${gmpy_cdirs_label_symbol}*)*$")" ] \
         && return 0 || return 1
 }
 
@@ -743,7 +727,7 @@ gmpy_cdirs_print_help() {
             echo -e "\033[32mcdir [-f|--find <dir> [-k|--key <key>]]\033[0m"
             echo -e "    search dir in key-path. use -k|--key to appoint key or use default key\n"
             echo -e "    you can set your key and key-path in ~/.cdirsrc with variable gmpy_cdirs_default_key and gmpy_cdirs_key\n"
-            echo -e "    you can also set search max depth by variable gmpy_cdirs_search_max_depth\n"
+            echo -e "    you can also set search max depth by variable gmpy_cdirs_find_max_depth\n"
             echo -e "\033[31mNote: cdir is a superset of cd, so you can use it as cd too (In fact, my support for this scripts is to replace cd)\033[0m"
             ;;
         setdir)
@@ -761,8 +745,8 @@ gmpy_cdirs_print_help() {
             echo -e "\033[32msetdir [-g|--global] <label> <path> :\033[0m"
             echo -e "    set label to path, moreover, record it in ~/.cdir_default. In this way, you can set this label-path automatically everytimes you run a terminal\n"
             echo -en "\033[31mNote: label starts with "
-            [ -n "${gmpy_cdirs_first_symbol}" ] \
-                && echo -n "'${gmpy_cdirs_first_symbol}'" \
+            [ -n "${gmpy_cdirs_mark_symbol}" ] \
+                && echo -n "'${gmpy_cdirs_mark_symbol}'" \
                 || echo -n "letter"
             echo -n " and combinates with letter, number and symbol "
             echo -e "'${gmpy_cdirs_label_symbol}'\033[0m"
@@ -810,13 +794,11 @@ gmpy_cdirs_load_config() {
     eval "[ -f "${gmpy_cdirs_config}" ] && source ${gmpy_cdirs_config}"
 }
 
-# gmpy_cdirs_replace_cd <path>
-gmpy_cdirs_replace_cd() {
-    if [ -n "$*" ]; then
-        builtin cd "$*"
-    else
-        builtin cd
-    fi
+# gmpy_cdirs_builtin_cd <path>
+gmpy_cdirs_builtin_cd() {
+    [ -n "$1" ] \
+        && builtin cd "$*" \
+        || builtin cd
 }
 
 gmpy_cdirs_init() {
@@ -848,6 +830,10 @@ gmpy_cdirs_init() {
         && touch ${gmpy_cdirs_env}
     [ -z "${gmpy_cdirs_default}" ] \
         && gmpy_cdirs_default="${HOME}/.cdirs_default"
+    [ -z "${gmpy_cdirs_mark_symbol}" ] \
+        && gmpy_cdirs_mark_symbol=','
+    [ -z "${gmpy_cdirs_label_symbol}" ] \
+        && gmpy_cdirs_label_symbol='-'
     gmpy_cdirs_load_global_labels &>/dev/null
 
     complete -F gmpy_cdirs_complete_func -o dirnames "setdir" "lsdir" "cldir"
@@ -962,9 +948,9 @@ gmpy_cdirs_complete_func() {
                         complete_list="--$(echo "${cdir_options_list_full}" | sed 's/,/ --/g' | sed 's/://g')"
                     elif [ "${cur:0:1}" = "-" ]; then
                         complete_list="$(echo "${cdir_options_list}" | sed 's/://g' | sed 's/[[:alpha:]]/-& /g')"
-                    elif [ -n "${gmpy_cdirs_first_symbol}" -a "${cur:0:1}" = "${gmpy_cdirs_first_symbol}" ]; then
+                    elif [ -n "${gmpy_cdirs_mark_symbol}" -a "${cur:0:1}" = "${gmpy_cdirs_mark_symbol}" ]; then
                         complete_list="$(gmpy_cdirs_get_all_label)"
-                    elif [ -z "${gmpy_cdirs_first_symbol}" ]; then
+                    elif [ -z "${gmpy_cdirs_mark_symbol}" ]; then
                         complete_list="$(gmpy_cdirs_get_all_label)"
                     fi
                     ;;
@@ -979,7 +965,7 @@ gmpy_cdirs_complete_func() {
 #gmpy_cdirs_set_find_maxdepth <num>
 gmpy_cdirs_set_find_maxdepth() {
     gmpy_cdirs_check_whether_num "$1" \
-        && gmpy_cdirs_search_max_depth="$1" || return 1
+        && gmpy_cdirs_find_max_depth="$1" || return 1
 }
 
 #gmpy_cdirs_set_default_key <key>
@@ -1011,7 +997,7 @@ gmpy_cdirs_find_dir_from_key() {
     kpath="$(gmpy_cdirs_get_path_from_key "$1")"
     [ -z "${kpath}" ] && return 0
 
-    find_maxdepth="${3:-${gmpy_cdirs_search_max_depth}}"
+    find_maxdepth="${3:-${gmpy_cdirs_find_max_depth}}"
     gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
 
     cmd="$([ -n "${find_maxdepth}" ] \
@@ -1026,7 +1012,7 @@ gmpy_cdirs_get_all_dirs_from_key() {
     kpath="$(gmpy_cdirs_get_path_from_key $1)"
     [ -z "${kpath}" ] && return 0
 
-    find_maxdepth="${2:-${gmpy_cdirs_search_max_depth}}"
+    find_maxdepth="${2:-${gmpy_cdirs_find_max_depth}}"
     gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
 
     cmd="$([ -n "${find_maxdepth}" ] \
@@ -1076,12 +1062,12 @@ gmpy_cdirs_cd_find_process() {
                 continue
             }
             echo -e "\033[32m${f_result[cnt]}\033[0m"
-            gmpy_cdirs_replace_cd "${f_result[cnt]}"
+            gmpy_cdirs_builtin_cd "${f_result[cnt]}"
             break
         done
     elif [ "${f_cnt}" -eq "1" ]; then
         echo -e "\033[32m${f_result}\033[0m"
-        gmpy_cdirs_replace_cd "${f_result}"
+        gmpy_cdirs_builtin_cd "${f_result}"
     else
         echo -e "\033[31mCan't find $1\033[0m"
     fi
@@ -1093,7 +1079,7 @@ gmpy_cdirs_cd_find_process() {
 gmpy_cdirs_find_dir_from_pwd() {
     local cmd find_maxdepth
 
-    find_maxdepth="${2:-${gmpy_cdirs_search_max_depth}}"
+    find_maxdepth="${2:-${gmpy_cdirs_find_max_depth}}"
     gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
 
     cmd="$([ -n "${find_maxdepth}" ] \
@@ -1106,7 +1092,7 @@ gmpy_cdirs_find_dir_from_pwd() {
 gmpy_cdirs_get_all_dirs_from_pwd() {
     local cmd find_maxdepth
 
-    find_maxdepth="${1:-${gmpy_cdirs_search_max_depth}}"
+    find_maxdepth="${1:-${gmpy_cdirs_find_max_depth}}"
     gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
 
     cmd="$([ -n "${find_maxdepth}" ] \
