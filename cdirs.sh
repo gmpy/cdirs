@@ -292,8 +292,8 @@ _setdir() {
     local path="$(gmpy_cdirs_get_absolute_path "$2")"
     local num
 
-    if [ -z "${path}" -o ! -d ${path} ]; then
-        echo -e "\033[31m${path} isn't existed or directory\033[0m"
+    if [ ! -d "${path}" ]; then
+        echo -e "\033[31m$2 isn't existed or directory\033[0m"
         return 2
     fi
 
@@ -466,7 +466,7 @@ gmpy_cdirs_get_path() {
 
 # gmpy_cdirs_get_absolute_path <path>
 gmpy_cdirs_get_absolute_path() {
-    echo $(echo "$(cd "$1" && pwd)" | sed 's/\(.*\)\/$/\1/g')
+    echo $(echo "$(cd "$1" &>/dev/null && pwd)" | sed 's/\(.*\)\/$/\1/g')
 }
 
 #================ CHECK path\label\num ================#
@@ -756,10 +756,9 @@ gmpy_cdirs_load_config() {
 
 # gmpy_cdirs_builtin_cd <path>
 gmpy_cdirs_builtin_cd() {
-    echo 1 is $1
-    [ -n "$1" ] \
+    echo $1 | grep " " &>/dev/null \
         && builtin cd "$*" \
-        || builtin cd
+        || builtin cd $@
 }
 
 gmpy_cdirs_init() {
