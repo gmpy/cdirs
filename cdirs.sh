@@ -314,8 +314,8 @@ _setdir() {
         gmpy_cdirs_clear_dir "$3" "$1" &>/dev/null
     else
         echo -en "\033[31mcreate:\033[0m\t"
-        num="$(gmpy_cdirs_get_num_cnt)"
         gmpy_cdirs_add_num_cnt
+        num="$(gmpy_cdirs_get_num_cnt)"
     fi
 
     gmpy_cdirs_set_env "$3" "${num}" "$1" "${path}"
@@ -672,7 +672,7 @@ gmpy_cdirs_set_env() {
 # Turn back to initial status
 gmpy_cdirs_reset() {
     gmpy_cdirs_clear_all
-    gmpy_cdirs_cnt=1
+    unset gmpy_cdirs_cnt
     gmpy_cdirs_load_config
     gmpy_cdirs_load_global_labels
 }
