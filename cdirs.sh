@@ -466,47 +466,7 @@ gmpy_cdirs_get_path() {
 
 # gmpy_cdirs_get_absolute_path <path>
 gmpy_cdirs_get_absolute_path() {
-    local pwd_path="${PWD}"
-    local para_path="$1"
-
-    # deal with word like - ~ . ..
-    if [ "${para_path}" = "-" ]; then
-        echo "${OLDPWD}"
-        return 0
-    elif [ "${para_path}" = "." ]; then
-        echo "${PWD}"
-        return 0
-    elif [ "${para_path}" = ".." ]; then
-        echo "${PWD%/*}"
-        return 0
-    elif [ "${para_path}" = "~" ]; then
-        echo "${HOME}"
-        return 0
-    elif [ "${para_path:0:1}" = "~" ]; then
-        para_path="${HOME}${para_path:1}"
-    fi
-
-    # delete last letter /
-    para_path=$(echo "${para_path}" | sed 's/\(.*\)\/$/\1/g')
-
-    # deal with word like ./ ../
-    while [ -n "$(echo "${para_path}" | egrep "\./|\.\./")" ]
-    do
-        if [ "${para_path%%/*}" = ".." ]; then
-            pwd_path="${pwd_path%/*}"
-        elif [ ! "${para_path%%/*}" = "." ]; then
-            pwd_path="${pwd_path}/${para_path%%/*}"
-        fi
-        para_path="${para_path#*/}"
-    done
-
-    if [ ! "${pwd_path}" = "${PWD}" ]; then
-        echo "${pwd_path}/${para_path}"
-    elif [ -d "${para_path}" ] && [ ! "${para_path:0:1}" = "/" ]; then
-        echo "${PWD}/${para_path}"
-    else
-        echo "${para_path}"
-    fi
+    echo $(echo "$(cd "$1" && pwd)" | sed 's/\(.*\)\/$/\1/g')
 }
 
 #================ CHECK path\label\num ================#
@@ -796,6 +756,7 @@ gmpy_cdirs_load_config() {
 
 # gmpy_cdirs_builtin_cd <path>
 gmpy_cdirs_builtin_cd() {
+    echo 1 is $1
     [ -n "$1" ] \
         && builtin cd "$*" \
         || builtin cd
