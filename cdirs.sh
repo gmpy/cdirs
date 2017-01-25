@@ -12,7 +12,7 @@ cdir_options_list_full="reload,reset,num:,label:,path:,help,key:tag:,find:,Find:
 lsdir_options_list_full="path:,help"
 cldir_options_list_full="all,reset,help"
 setdir_options_list_full="global,help"
-init_options_list_full="replace-cd,help"
+init_options_list_full="unalias-cd"
 
 cdir() {
     local _type label_path opts key f_dir F_dir find_maxdepth
@@ -763,16 +763,14 @@ gmpy_cdirs_builtin_cd() {
 }
 
 gmpy_cdirs_init() {
+    local alias_cd=1
     local opts="$(getopt -l "${init_options_list_full}" -o "h" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
         case "$1" in
-            -h|--help)
-                shift
-                ;;
-            --replace-cd)
-                alias cd="cdir"
+            --unalias-cd)
+                alias_cd=0
                 shift
                 ;;
             --)
@@ -784,6 +782,8 @@ gmpy_cdirs_init() {
                 ;;
         esac
     done
+
+    [ "${alias_cd}" -eq "1" ] && alias cd='cdir'
 
     gmpy_cdirs_load_config
     gmpy_cdirs_env="/tmp/cdirs/cdirs.env.$$" \
@@ -799,7 +799,7 @@ gmpy_cdirs_init() {
 
     complete -F gmpy_cdirs_complete_func -o dirnames "setdir" "lsdir" "cldir"
     complete -F gmpy_cdirs_complete_func -o dirnames -A directory "cdir" \
-        "$([ "$(type -t cd)" = "alias" ] && echo "cd")"
+        "$([ "${alias_cd}" -eq "1" ] && echo "cd")"
 
 }
 

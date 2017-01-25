@@ -21,7 +21,7 @@ check_cdirs() {
 }
 
 print_help() {
-    echo "Usage: ./install.sh [-h|--help] [--uninstall] [--unreplace-cd]"
+    echo "Usage: ./install.sh [-h|--help] [--uninstall] [--unalias-cd]"
 }
 
 uninstall() {
@@ -39,8 +39,8 @@ elif [ "$#" -eq 1 ]; then
             echo -e "\033[31mcdirs has unistalled, have a fun day\033[0m"
             exit 0
             ;;
-        --unreplace-cd)
-            not_replace_cd=1
+        --unalias-cd)
+            unalias_cd=1
             [ -f ~/.bashrc ] && sed -i '/set for cdir/,/end for cdir/d' ~/.bashrc
             shift
             ;;
@@ -66,7 +66,7 @@ uninstall
 echo -n "setting cdirs to ~/.bashrc ... "
 cat >> ~/.bashrc <<EOF
 # == set for cdirs ==
-source ${src} $([ -z "${not_replace_cd}" ] && echo "--replace-cd")
+source ${src}$([ "${unalias_cd}" = "1" ] && echo " --unalias-cd")
 # == end for cdirs ==
 EOF
 echo "YES"
