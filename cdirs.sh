@@ -10,7 +10,7 @@ setdir_options_list="hg"
 
 cdir_options_list_full="reload,reset,num:,label:,path:,help,key:tag:,find:,Find:,default-key:,find-maxdepth:"
 lsdir_options_list_full="path:,help"
-cldir_options_list_full="all,reset,help,reload,global"
+cldir_options_list_full="all,reset,help"
 setdir_options_list_full="global,help"
 init_options_list_full="replace-cd,help"
 
@@ -193,14 +193,6 @@ cldir() {
         case "$1" in
             -h|--help)
                 gmpy_cdirs_print_help "cldir"
-                return 0
-                ;;
-            --reset)
-                gmpy_cdirs_reset
-                return 0
-                ;;
-            --reload)
-                gmpy_cdirs_load_global_labels
                 return 0
                 ;;
             -a|--all)
