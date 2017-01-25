@@ -493,7 +493,7 @@ gmpy_cdirs_check_type() {
 # gmpy_cdirs_check_label <label>
 gmpy_cdirs_check_label() {
     [ -n "$(echo "$1" \
-        | egrep "^${gmpy_cdirs_mark_symbol}([[:alnum:]]*${gmpy_cdirs_label_symbol}*)*$")" ] \
+        | egrep "^${gmpy_cdirs_mark_symbol}([[:alnum:]]+${gmpy_cdirs_label_symbol}*)+$")" ] \
         && return 0 || return 1
 }
 
