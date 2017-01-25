@@ -4,47 +4,7 @@ script_cdirs="cdirs.sh"
 
 # get_absolute_path <path>
 get_absolute_path() {
-    local pwd_path="${PWD}"
-    local para_path="$1"
-
-    # deal with word like - ~ . ..
-    if [ "${para_path}" = "-" ]; then
-        echo "${OLDPWD}"
-        return 0
-    elif [ "${para_path}" = "." ]; then
-        echo "${PWD}"
-        return 0
-    elif [ "${para_path}" = ".." ]; then
-        echo "${PWD%/*}"
-        return 0
-    elif [ "${para_path}" = "~" ]; then
-        echo "${HOME}"
-        return 0
-    elif [ "${para_path:0:1}" = "~" ]; then
-        para_path="${HOME}${para_path:1}"
-    fi
-
-    # delete last letter /
-    para_path=$(echo "${para_path}" | sed 's/\(.*\)\/$/\1/g')
-
-    # deal with word like ./ ../
-    while [ -n "$(echo "${para_path}" | egrep "\./|\.\./")" ]
-    do
-        if [ "${para_path%%/*}" = ".." ]; then
-            pwd_path="${pwd_path%/*}"
-        elif [ ! "${para_path%%/*}" = "." ]; then
-            pwd_path="${pwd_path}/${para_path%%/*}"
-        fi
-        para_path="${para_path#*/}"
-    done
-
-    if [ ! "${pwd_path}" = "${PWD}" ]; then
-        echo "${pwd_path}/${para_path}"
-    elif [ -d "${para_path}" ] && [ ! "${para_path:0:1}" = "/" ]; then
-        echo "${PWD}/${para_path}"
-    else
-        echo "${para_path}"
-    fi
+    echo $(echo "$(cd "$1" &>/dev/null && pwd)" | sed 's/\(.*\)\/$/\1/g')
 }
 
 check_cdirs() {
@@ -95,8 +55,6 @@ elif [ "$#" -eq 1 ]; then
     esac
 fi
 
-
-
 echo -n "finding cdirs.sh ... "
 check_cdirs && echo YES || {
     echo NO
@@ -108,8 +66,6 @@ uninstall
 echo -n "setting cdirs to ~/.bashrc ... "
 cat >> ~/.bashrc <<EOF
 # == set for cdirs ==
-[ "\$(type -t cd)" = "alias" ] && unalias cd
-wait
 source ${src} $([ -z "${not_replace_cd}" ] && echo "--replace-cd")
 # == end for cdirs ==
 EOF
@@ -123,5 +79,5 @@ cat >> ~/.bash_logout <<EOF
 EOF
 echo "YES"
 
-echo -e "\033[31mcdirs has installed, please re-open bash\033[0m"
+echo -e "\033[31mcdirs has installed, please reload ~/.bashrc <source ~/.bashrc>\033[0m"
 echo -e "\033[32msee more $([ -z "${not_replace_cd}" ] && echo "cd|")cdir|setdir|lsdir|cldir --help\033[0m"
