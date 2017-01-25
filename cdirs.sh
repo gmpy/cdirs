@@ -795,6 +795,8 @@ gmpy_cdirs_init() {
         && gmpy_cdirs_mark_symbol=','
     [ -z "${gmpy_cdirs_label_symbol}" ] \
         && gmpy_cdirs_label_symbol='-'
+    [ -z "${gmpy_cdirs_find_max_depth}" ] \
+        && gmpy_cdirs_find_max_depth=2
     gmpy_cdirs_load_global_labels &>/dev/null
 
     complete -F gmpy_cdirs_complete_func -o dirnames "setdir" "lsdir" "cldir"
