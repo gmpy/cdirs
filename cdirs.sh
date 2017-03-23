@@ -3,19 +3,19 @@
 # config file
 gmpy_cdirs_config="~/.cdirsrc"
 
-cdir_options_list="hn:l:p:k:t:f:F:"
+cdir_options_list="hn:l:p:t:d:f:"
 lsdir_options_list="hp:"
 cldir_options_list="gha"
 setdir_options_list="hg"
 
-cdir_options_list_full="reload,reset,num:,label:,path:,help,key:tag:,find:,Find:,default-key:,find-maxdepth:"
+cdir_options_list_full="reload,reset,num:,label:,path:,help,tag:,find:,depth:"
 lsdir_options_list_full="path:,help"
 cldir_options_list_full="all,reset,help"
 setdir_options_list_full="global,help"
 init_options_list_full="unalias-cd"
 
 cdir() {
-    local _type label_path opts key f_dir F_dir find_maxdepth
+    local _type label_path opts tag_path fdir fdepth
 
     opts="$(getopt -l "${cdir_options_list_full}" -o "${cdir_options_list}" -- $@)" || return 1
     eval set -- "${opts}"
@@ -56,43 +56,27 @@ cdir() {
                 gmpy_cdirs_reset
                 return 0
                 ;;
-            -k|--key|-t|--tag)
+            -t|--tag)
                 shift
-                gmpy_cdirs_check_key "${1}" || {
-                    echo "$1: No this key"
+                gmpy_cdirs_check_label_existed "$1" || {
+                    echo "$1: no this tag|label"
                     return 1
                 }
-                key="$1"
+                tag_path="$(_cdir "$1" "label")"
                 shift
                 ;;
             -f|--find)
                 shift
-                f_dir="$1"
+                fdir="$1"
                 shift
                 ;;
-            -F|--Find)
-                shift
-                F_dir="$1"
-                shift
-                ;;
-            --default-key)
-                shift
-                gmpy_cdirs_set_default_key "$1" || {
-                    echo "$1: No This Key"
-                    return 1
-                }
-                return 0
-                ;;
-            --find-maxdepth)
+            -d|--depth)
                 shift
                 gmpy_cdirs_check_whether_num "$1" || {
-                    echo "$1: Invaild Input - Not Num"
+                    echo "$1: -d|--depth need a num"
                     return 1
                 }
-                [ "$#" -eq 2 -a -z "${f_dir}" -a -z "${F_dir}" ] \
-                    && gmpy_cdirs_set_find_maxdepth "$1" \
-                    && return
-                find_maxdepth="$1"
+                fdepth="$1"
                 shift
                 ;;
             --)
@@ -104,12 +88,10 @@ cdir() {
     [ -z "${label_path}" ] && label_path="$*"
 
     # -f|--find|-F|--Find
-    if [ -n "${f_dir}" ]; then
-        key=${key:-${gmpy_cdirs_default_key}}
-        [ -z "${key}" ] && echo "Invaild Key - No Key" && return 1
-        gmpy_cdirs_cd_find_process "${f_dir}" "${key}" "${find_maxdepth}"
-    elif [ -n "${F_dir}" ]; then
-        gmpy_cdirs_cd_find_process "${F_dir}" "${find_maxdepth}"
+    if [ -n "${fdir}" ]; then
+        tag_path=${tag_path:-"."}
+        fdepth=${fdepth:-${gmpy_cdirs_find_default_depth}}
+        gmpy_cdirs_cd_find "${fdir}" "${tag_path}" "${fdepth}"
     else
         gmpy_cdirs_builtin_cd "$(_cdir "${label_path}" "${_type}")"
     fi
@@ -656,59 +638,63 @@ gmpy_cdirs_print_help() {
     case "$1" in
         cdir)
             echo -e "\033[33mcdir [-h|--help] [--reload] [--reset] [<-n|--num> <num>] [<-l|--label|> <label>] [<-p|--path> <path>] [num|label|path]\033[0m"
-            echo -e "\033[33mcdir [-f|--find <dirname> [-t|--tag|-k|--key <key>]] [-F|--Find <dirname>] [--find-maxdepth <depth>] [--default-key <key>]\033[0m"
+            echo -e "\033[33mcdir [-t|--tag <label>] [-d|--depth <num>] -f <dir>\033[0m"
             echo -e "\033[33mcdir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32mcdir [num|label|path] :\033[0m"
-            echo -e "    cd to num-path, label-path or path"
-            echo -e "    the num or label is set by <setdir>, you can get all nums and labels by <lsdir>. See also <setdir -h> and <lsdir -h>"
-            echo -e "    cdir [path] is the same as builtin cd [path]\n"
-            echo -e "\033[32mcdir , :\033[0m"
-            echo -e "    cd to mark-path, which is set by <setdir ,>. See also <setdir --help>\n"
-            echo -e "\033[32mcdir -h|--help :\033[0m"
-            echo -e "    show this messages\n"
+            echo -e "    Change directory to num-path, label-path or path."
+            echo -e "    The num or label is set by <setdir>, you can get all nums and labels by <lsdir>."
+            echo -e "    See also <setdir -h> and <lsdir -h>"
+            echo -ne "\033[31m"
+            echo -e "    Note: cdir [path] is the same as builtin cd [path]\033[0m\n"
             echo -e "\033[32mcdir [-n|--num <num>] [<-l|--label|> <label>] [<-p|--path> <path>] :\033[0m"
-            echo -e "    specify out the parameter type as num|label|path"
-            echo -e "\033[31mNote: if there is a directory which name is the same as num|label, cdir will go to this directory rather than num-path|label-path\033[0m\n"
+            echo -e "    Specify out the parameter type as num|label|path"
+            echo -ne "\033[31m"
+            echo -e "    Note: if there is a directory which name is the same as num|label,"
+            echo -e "    cdir will go to this directory rather than num-path|label-path\033[0m\n"
+            echo -e "\033[32mcdir [-t|--tag <label>] [-d|--depth <num>] -f <dir>\033[0m"
+            echo -e "    Find directory from label-path specified by -t|--tag or current directory default."
+            echo -e "    And the maximum depth to find is specified by -d|--depth."
+            echo -e "    If get any directory matched <dir>, go to it."
+            echo -ne "\033[31m"
+            echo -e "    Note: <dir> can be in wildcard, see more command find\033[0m"
+            echo -e "\033[32mcdir , :\033[0m"
+            echo -e "    Change directory to mark-path, which is set by <setdir ,>. See also <setdir --help>\n"
+            echo -e "\033[32mcdir -h|--help :\033[0m"
+            echo -e "    Show this messages\n"
             echo -e "\033[32mcdir --reload :\033[0m"
-            echo -e "    reload global label-path and setting but do not clear any label-path[ default: ~/.cdirs_default and ~/.cdirsrc ]\n"
+            echo -e "    Reload global label-path and setting but do not clear any label-path"
+            echo -e "    [ default: ~/.cdirs_default and ~/.cdirsrc ]\n"
             echo -e "\033[32mcdir --reset :\033[0m"
-            echo -e "    reload global label-path and setting but also clear any label-path[ default: ~/.cdirs_default and ~/.cdirsrc ]\n"
-            echo -e "\033[32mcdir [-t|--tag|-k|--key <key>] [--find-maxdepth <depth>] -f <dirname> :\033[0m"
-            echo -e "    find directory from key-path. Use -k|--key to sepcify key, if not, use default key-path"
-            echo -e "    key-path is set in setting file, wrote in shell script [ default: ~/.cdirsrc : gmpy_cdirs_default_key & gmpy_cdirs_key ]"
-            echo -e "    --find-maxdepth is to limit maxdepth temporarily to find directory\n"
-            echo -e "\033[32mcdir [--find-maxdepth <depth>] -F <dirname> :\033[0m"
-            echo -e "    the same as -f <dirname>, but find directory in current path\n"
-            echo -e "\033[32mcdir --find-maxdepth <depth> :\033[0m"
-            echo -e "    set default find maxdepth"
-            echo -e "    you can also set it forever in setting file [ default: ~/.cdirsrc ] and run <cd --reload> to load setting file\n"
-            echo -e "\033[32mcdir --default-key <key> :\033[0m"
-            echo -e "    set default key-path"
-            echo -e "    you can also set it forever in setting file [ default: ~/.cdirsrc ] and run <cd --reload> to load setting file\n"
-            echo -e "\033[31mNote: cdir is a superset of cd, so you can use it like cd (In fact, my support for cdirs is to replace cd)\033[0m"
+            echo -e "    Reload global label-path and setting but also clear any label-path"
+            echo -e "    [ default: ~/.cdirs_default and ~/.cdirsrc ]\n"
+            echo -ne "\033[31m"
+            echo -e "    Note: cdir is a superset of cd, so you can use it like cd"
+            echo -e "          (In fact, my support for cdirs is to replace cd)\033[0m"
             ;;
         setdir)
             echo -e "\033[33msetdir [-h|--help] [-g|--global] <label> <path>\033[0m"
             echo -e "\033[33msetdir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32msetdir [-g|--global] label path :\033[0m"
-            echo -e "    set label-path, then, you can use \"cdir <label>\" or \"cdir <num>\" to go to path"
-            echo -e "    if setdir with -g|--global, label will be also record in global label-path [ default: ~/.cdirs_default ]"
-            echo -e "    the num increase by degrees in default, and the path must be directory and existed"
-            echo -e "    the label is in format:"
+            echo -e "    Set label-path, then, you can use \"cdir <label>\" or \"cdir <num>\" to go to path."
+            echo -e "    If setdir with -g|--global, label will be also record in global label-path"
+            echo -e "    [ default: ~/.cdirs_default ]"
+            echo -e "    The num increase by degrees in default, and the path must be directory and existed"
+            echo -e "    The label is in format:"
             echo -n "        label starts with "
                             [ -n "${gmpy_cdirs_mark_symbol}" ] \
                             && echo -n "'${gmpy_cdirs_mark_symbol}'" \
                             || echo -n "letter"
                             echo -n " and combinates with letter, number and symbol "
                             echo "'${gmpy_cdirs_label_symbol}'"
-            echo -e "    moreover, path strings is support characters like . or .. or ~ or -"
-            echo -e "    eg. \"setdir work .\" or \"setdir cdirs ~/cdirs\" or \"setdir last_dir -\" or others\n"
+            echo -e "    Moreover, path strings is support characters like . or .. or ~ or -"
+            echo -e "    Eg. \"setdir ,work .\" or \"setdir ,cdirs ~/cdirs\" or \"setdir ,last_dir -\" or others\n"
             echo -e "\033[32msetdir , :\033[0m"
-            echo -e "    set current path as mark-path, which is usefull and quick for recording working path , you can go back fastly by \"cdir ,\"\n"
+            echo -e "    Set current path as mark-path, which is usefull and quick for recording working path."
+            echo -e "    You can go back fastly by \"cdir ,\"\n"
             echo -e "\033[32msetdir [-h|--help] :\033[0m"
-            echo -e "    show this messages\n"
+            echo -e "    Show this messages\n"
             echo -en "\033[31mNote: label starts with "
                             [ -n "${gmpy_cdirs_mark_symbol}" ] \
                             && echo -n "'${gmpy_cdirs_mark_symbol}'" \
@@ -721,29 +707,29 @@ gmpy_cdirs_print_help() {
             echo -e "\033[33mcldir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32mcldir [-g|--global] <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
-            echo -e "    clear label-path. If path, clear all label-path matching this path"
-            echo -e "    if -g|--global existed, also clear global label-path [ defualt: ~/.cdirs_default ]\n"
+            echo -e "    Clear label-path. If path, clear all label-path matching this path"
+            echo -e "    If -g|--global existed, also clear global label-path [ defualt: ~/.cdirs_default ]\n"
             echo -e "\033[32mcldir , :\033[0m"
-            echo -e "    clear the mark-path. see also \"setdir --help\"\n"
+            echo -e "    Clear the mark-path. see also \"setdir --help\"\n"
             echo -e "\033[32mcldir -h|--help :\033[0m"
-            echo -e "    show this messages\n"
+            echo -e "    Show this messages\n"
             echo -e "\033[32mcldir [-g|--global] -a|--all :\033[0m"
-            echo -e "    clear all label-path"
-            echo -e "    if -g|--global existed, clear all global label-path [ defualt: ~/.cdirs_default ]\n"
+            echo -e "    Clear all label-path"
+            echo -e "    If -g|--global existed, clear all global label-path [ defualt: ~/.cdirs_default ]\n"
             ;;
         lsdir)
             echo -e "\033[33mlsdir [-h|--help] [-p|--path <num|label|path>] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
             echo -e "\033[33mlsdir <,>\033[0m"
             echo "--------------"
             echo -e "\033[32mlsdir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
-            echo -e "    list the label-path. if path, list all label-path matching this path\n"
+            echo -e "    List the label-path. if path, list all label-path matching this path\n"
             echo -e "\033[32mlsdir <,> :\033[0m"
-            echo -e "    list the mark-path. see also \"setdir --help\"\n"
+            echo -e "    List the mark-path. see also \"setdir --help\"\n"
             echo -e "\033[32mlsdir [-h|--help] :\033[0m"
-            echo -e "    show this messages\n"
+            echo -e "    Show this messages\n"
             echo -e "\033[32mlsdir [-p|--path <num|label|path>] :\033[0m"
-            echo -e "    only print path of label-path, which is usefull to embedded in other commands"
-            echo -e "    eg. cat \`lsdir -p cdirs\`/readme.txt => cat /home/user/cdirs/readme.txt"
+            echo -e "    Only print path of label-path, which is usefull to embedded in other commands"
+            echo -e "    Eg. cat \`lsdir -p cdirs\`/readme.txt => cat /home/user/cdirs/readme.txt"
             ;;
     esac
 }
@@ -795,12 +781,12 @@ gmpy_cdirs_init() {
         && gmpy_cdirs_mark_symbol=','
     [ -z "${gmpy_cdirs_label_symbol}" ] \
         && gmpy_cdirs_label_symbol='-'
-    [ -z "${gmpy_cdirs_find_max_depth}" ] \
-        && gmpy_cdirs_find_max_depth=2
+    [ -z "${gmpy_cdirs_find_default_depth}" ] \
+        && gmpy_cdirs_find_default_depth=2
     gmpy_cdirs_load_global_labels &>/dev/null
 
-    complete -F gmpy_cdirs_complete_func -o dirnames "setdir" "lsdir" "cldir"
-    complete -F gmpy_cdirs_complete_func -o dirnames -A directory "cdir" \
+    complete -F gmpy_cdirs_complete_func -o dirnames \
+        "setdir" "lsdir" "cldir" "cdir" \
         "$([ "${alias_cd}" -eq "1" ] && echo "cd")"
 
 }
@@ -846,64 +832,45 @@ gmpy_cdirs_complete_func() {
                 "-p"|"--path")
                     complete_list=
                     ;;
-                "-k"|"--key"|"-t"|"--tag"|"--default-key")
-                    complete_list="$(gmpy_cdirs_get_all_key)"
+                "-t"|"--tag")
+                    complete_list="$(gmpy_cdirs_get_all_label)"
                     ;;
-                "--find-maxdepth")
+                "-d"|"--depth")
                     complete_list=
                     ;;
                 "-f"|"--find")
-                    local key opt cnt find_maxdepth
+                    local tag_path opt cnt fdepth
 
-                    # get key
+                    # get tag
                     cnt=0
                     for opt in ${COMP_WORDS[@]}
                     do
                         cnt=$(( ${cnt} + 1 ))
-                        [ "${opt}" = "-k" \
-                            -o "${opt}" = "-t" \
-                            -o "${opt}" = "--key" \
+                        [ "${opt}" = "-t" \
                             -o "${opt}" = "--tag" ] && break
                     done
-                    key="${COMP_WORDS[cnt]:-${gmpy_cdirs_default_key}}"
+                    tag_path="$(_cdir "${COMP_WORDS[cnt]:-"."}" "label")"
 
-                    # get find_maxdepth
+                    # get depth
                     cnt=0
                     for opt in ${COMP_WORDS[@]}
                     do
                         cnt=$(( ${cnt} + 1 ))
-                        [ "${opt}" = "--find-maxdepth" ] && break
+                        [ "${opt}" = "-d" \
+                            -o "${opt}" = "--depth" ] && break
                     done
-                    find_maxdepth="${COMP_WORDS[cnt]}"
+                    fdepth="${COMP_WORDS[cnt]:-${gmpy_cdirs_find_default_depth}}"
 
-                    [ -n "${key}" ] && {
-                        [ "${key}" = "${gmpy_cdirs_complete_key}" \
-                            -a -n "${gmpy_cdirs_complete_dirs}" ] \
-                            && complete_list="${gmpy_cdirs_complete_dirs}" \
-                            || {
-                                complete_list="$(gmpy_cdirs_get_all_dirs_from_key "${key}" "${find_maxdepth}")"
-                                gmpy_cdirs_complete_dirs="${complete_list}"
-                                gmpy_cdirs_complete_key="${key}"
-                            }
-                    }
-                    ;;
-                "-F"|"--Find")
-                    local opt cnt find_maxdepth
-                    # get find_maxdepth
-                    cnt=0
-                    for opt in ${COMP_WORDS[@]}
-                    do
-                        cnt=$(( ${cnt} + 1 ))
-                        [ "${opt}" = "--find-maxdepth" ] && break
-                    done
-                    find_maxdepth="${COMP_WORDS[cnt]}"
-
-                    [ -n "${gmpy_cdirs_complete_dirs}" -a -z "${gmpy_cdirs_complete_key}" ] \
-                        && complete_list="${gmpy_cdirs_complete_dirs}" \
+                    # save previous tag_path|depth|dirs for complete quick
+                    [ "${tag_path}" = "${gmpy_cdirs_previous_tag}" \
+                        -a "${fdepth}" = "${gmpy_cdirs_previous_depth}" \
+                        -a -n "${gmpy_cdirs_previous_dirs}" ] \
+                        && complete_list="${gmpy_cdirs_previous_dirs}" \
                         || {
-                            complete_list="$(gmpy_cdirs_get_all_dirs_from_pwd "${find_maxdepth}")"
-                            gmpy_cdirs_complete_dirs="${complete_list}"
-                            unset gmpy_cdirs_complete_key
+                            complete_list="$(gmpy_cdirs_get_dirs_name "${tag_path}" "${fdepth}")"
+                            gmpy_cdirs_previous_depth="${fdepth}"
+                            gmpy_cdirs_previous_tag="${tag_path}"
+                            gmpy_cdirs_previous_dirs="${complete_list}"
                         }
                     ;;
                 *)
@@ -923,86 +890,35 @@ gmpy_cdirs_complete_func() {
     COMPREPLY=($(compgen -W "${complete_list}" -- "${cur}"))
 }
 
-#================ key path ================#
+#================ find dir ================#
 
-#gmpy_cdirs_set_find_maxdepth <num>
-gmpy_cdirs_set_find_maxdepth() {
-    gmpy_cdirs_check_whether_num "$1" \
-        && gmpy_cdirs_find_max_depth="$1" || return 1
-}
-
-#gmpy_cdirs_set_default_key <key>
-gmpy_cdirs_set_default_key() {
-    gmpy_cdirs_check_key "$1" \
-        && gmpy_cdirs_default_key="$1" \
-        || return 1
-}
-
-#gmpy_cdirs_get_all_key
-gmpy_cdirs_get_all_key() {
-    [ -n "${gmpy_cdirs_key}" ] \
-        && echo "${gmpy_cdirs_key[@]}" \
-            | sed 's/\;/\n/g' \
-            | awk '{print $1}'
-}
-
-#gmpy_cdirs_get_path_from_key() <key>
-gmpy_cdirs_get_path_from_key() {
-    [ -n "${gmpy_cdirs_key}" ] \
-        && echo "${gmpy_cdirs_key[@]}" \
-            | sed 's/\;/\n/g' \
-            | eval "awk '\$1~/^$1\$/{print \$3}'"
-}
-
-#gmpy_cdirs_find_dir_from_key <key> <dir> [find_maxdepth]
-gmpy_cdirs_find_dir_from_key() {
-    local cmd kpath find_maxdepth
-    kpath="$(gmpy_cdirs_get_path_from_key "$1")"
-    [ -z "${kpath}" ] && return 0
-
-    find_maxdepth="${3:-${gmpy_cdirs_find_max_depth}}"
-    gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
-
-    cmd="$([ -n "${find_maxdepth}" ] \
-            && echo "-maxdepth ${find_maxdepth}")"
-    cmd="find ${kpath} ${cmd} -name \"${2}\" -type d 2>/dev/null"
+#gmpy_cdirs_find_dirs <dir> <tag_path> <maxdepth>
+gmpy_cdirs_find_dirs() {
+    local cmd
+    cmd="find $2 -maxdepth $3 -name \"${1}\" -type d 2>/dev/null"
     echo $(eval "${cmd}")
 }
 
-#gmpy_cdirs_get_all_dirs_from_key <key> [find_maxdepth]
-gmpy_cdirs_get_all_dirs_from_key() {
-    local cmd kpath find_maxdepth
-    kpath="$(gmpy_cdirs_get_path_from_key $1)"
-    [ -z "${kpath}" ] && return 0
-
-    find_maxdepth="${2:-${gmpy_cdirs_find_max_depth}}"
-    gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
-
-    cmd="$([ -n "${find_maxdepth}" ] \
-            && echo "-maxdepth ${find_maxdepth}")"
-    cmd="find ${kpath} ${cmd} -type d 2>/dev/null | xargs -I {} basename {}"
+#gmpy_cdirs_get_dirs_name <tag_path> <find_depth>
+gmpy_cdirs_get_dirs_name() {
+    local cmd
+    cmd="find $1 -maxdepth $2 -type d 2>/dev/null | xargs -I {} basename {}"
     echo $(eval "${cmd}")
 }
 
-#gmpy_cdirs_check_key <key>
-gmpy_cdirs_check_key() {
-    [ -n "${gmpy_cdirs_key}" ] \
-        && echo "${gmpy_cdirs_key[@]}" \
-            | sed 's/\;/\n/g' \
-            | awk '{print $1}' \
-            | grep -w "${1}" &>/dev/null
-}
-
-#gmpy_cdirs_cd_find_process <dirname> <key> <find_maxdepth>
-#gmpy_cdirs_cd_find_process <dirname> <find_maxdepth>
-gmpy_cdirs_cd_find_process() {
-    local f_result dirname
-    if [ "$#" -gt "2" ]; then
-        f_result=($(gmpy_cdirs_find_dir_from_key "$2" "$1" "$3"))
-    else
-        f_result=($(gmpy_cdirs_find_dir_from_pwd "$1" "$2"))
-    fi
-    local f_cnt=${#f_result[@]}
+#gmpy_cdirs_cd_find <dirname> <tag_path> <find_depth>
+gmpy_cdirs_cd_find() {
+    local f_result f_cnt
+    [ -d "$2" ] || {
+        echo "$2: Not existed or directory"
+        return 1
+    }
+    gmpy_cdirs_check_whether_num "$3" || {
+        echo "$3: Not num for depth"
+        return 1
+    }
+    f_result=($(gmpy_cdirs_find_dirs "$1" "$2" "$3"))
+    f_cnt=${#f_result[@]}
 
     if [ "${f_cnt}" -gt "1" ]; then
         local cnt=0
@@ -1034,34 +950,10 @@ gmpy_cdirs_cd_find_process() {
     else
         echo -e "\033[31mCan't find $1\033[0m"
     fi
-    unset gmpy_cdirs_complete_dirs
-    unset gmpy_cdirs_complete_key
-}
-
-#gmpy_cdirs_find_dir_from_pwd <dir> [find_maxdepth]
-gmpy_cdirs_find_dir_from_pwd() {
-    local cmd find_maxdepth
-
-    find_maxdepth="${2:-${gmpy_cdirs_find_max_depth}}"
-    gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
-
-    cmd="$([ -n "${find_maxdepth}" ] \
-            && echo "-maxdepth ${find_maxdepth}")"
-    cmd="find ${PWD} ${cmd} -name \"${1}\" -type d 2>/dev/null"
-    echo $(eval "${cmd}")
-}
-
-#gmpy_cdirs_get_all_dirs_from_pwd [find_maxdepth]
-gmpy_cdirs_get_all_dirs_from_pwd() {
-    local cmd find_maxdepth
-
-    find_maxdepth="${1:-${gmpy_cdirs_find_max_depth}}"
-    gmpy_cdirs_check_whether_num "${find_maxdepth}" || unset find_maxdepth
-
-    cmd="$([ -n "${find_maxdepth}" ] \
-            && echo "-maxdepth ${find_maxdepth}")"
-    cmd="find ${PWD} ${cmd} -type d 2>/dev/null | xargs -I {} basename {}"
-    echo $(eval "${cmd}")
+    # for complete quick
+    unset gmpy_cdirs_previous_depth
+    unset gmpy_cdirs_previous_tag
+    unset gmpy_cdirs_previous_dirs
 }
 
 #gmpy_cdirs_check_whether_num <num>
