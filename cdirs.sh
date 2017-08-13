@@ -520,10 +520,18 @@ gmpy_cdirs_ls_one_dir() {
             gmpy_cdirs_ls_format $(gmpy_cdirs_get_env_from_num "$1")
             ;;
         path)
-            gmpy_cdirs_ls_format $(gmpy_cdirs_get_env_from_path "$1")
+            local line
+            while read line
+            do
+                gmpy_cdirs_ls_format ${line}
+            done <<< "$(gmpy_cdirs_get_env_from_path "$(gmpy_cdirs_get_absolute_path $1)")"
             ;;
         *)  #support regular expression
-            gmpy_cdirs_ls_format $(gmpy_cdirs_get_env_from_label "$1")
+            local line
+            while read line
+            do
+                gmpy_cdirs_ls_format ${line}
+            done <<< "$(gmpy_cdirs_get_env_from_label "$1")"
             ;;
     esac
 }
