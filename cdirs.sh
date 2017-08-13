@@ -433,7 +433,7 @@ gmpy_cdirs_get_path() {
                 || echo "$1"
             ;;
         *)
-            echo "$1"
+            echo "$(gmpy_cdirs_get_absolute_path $1)"
             ;;
     esac
 }
