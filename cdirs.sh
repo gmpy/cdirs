@@ -123,6 +123,8 @@ setdir() {
     if [ "$#" -lt "2" ]; then
         if [ "$1" = ',' ]; then
             gmpy_cdirs_set_mark
+        elif gmpy_cdirs_check_label $1; then
+            _setdir $1 "." "${flag}"
         else
             gmpy_cdirs_print_help "setdir"
         fi
