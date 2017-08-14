@@ -442,7 +442,7 @@ gmpy_cdirs_get_path() {
 
 # gmpy_cdirs_get_absolute_path <path>
 gmpy_cdirs_get_absolute_path() {
-    echo $(echo "$(cd "$1" &>/dev/null && pwd)" | sed 's/\(.*\)\/$/\1/g')
+    cd "$1" &>/dev/null && pwd | sed 's#/$##g'
 }
 
 #================ CHECK path\label\num ================#
