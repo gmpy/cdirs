@@ -443,7 +443,9 @@ gmpy_cdirs_get_path() {
 # gmpy_cdirs_get_absolute_path <path>
 gmpy_cdirs_get_absolute_path() {
     if [ -d "$1" ]; then
-        cd "$1" &>/dev/null && pwd | \sed 's#/$##g'
+        \cd "$1" &>/dev/null && pwd | \sed 's#/$##g'
+    elif [ "$1" = "-" ]; then
+        \echo ${OLDPWD}
     else
         \echo $1
     fi
