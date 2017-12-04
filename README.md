@@ -126,7 +126,7 @@ git clone https://github.com/gmpy/cdirs.git ~/cdirs
 
 * 手动安装
 
-在`~/.bashrc`中添加:`source ~/cdirs.sh`
+在`~/.bashrc`中添加:`source ~/cdirs/cdirs.sh`
 
 #### 安装-不覆盖cd
 
@@ -139,7 +139,7 @@ git clone https://github.com/gmpy/cdirs.git ~/cdirs
 
 * 手动安装  
 
-在`~/.bashrc`中添加:`source ~/cdirs.sh --unalias-cd`
+在`~/.bashrc`中添加:`source ~/cdirs/cdirs.sh --unalias-cd`
 
 ### 卸载步骤
 
@@ -152,7 +152,7 @@ git clone https://github.com/gmpy/cdirs.git ~/cdirs
 
 * 手动卸载
 
-在`~/.bashrc`中删除: `source ~/cdirs.sh`
+在`~/.bashrc`中删除: `source ~/cdirs/cdirs.sh`
 
 ## 快速开始
 
