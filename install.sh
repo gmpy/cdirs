@@ -2,82 +2,75 @@
 
 script_cdirs="cdirs.sh"
 
-# get_absolute_path <path>
-get_absolute_path() {
-    echo $(echo "$(cd "$1" &>/dev/null && pwd)" | sed 's/\(.*\)\/$/\1/g')
+# get_abs_path <path>
+get_abs_path() {
+    \cd "$1" &>/dev/null && pwd
 }
 
 check_cdirs() {
+    echo -n "Checking cdirs ... "
+
     src="`pwd`/${script_cdirs}"
     #check existed
     [ ! -f ${src} ] && {
-        src="$(get_absolute_path $(dirname $0))/${script_cdirs}"
-        [ ! -f ${src} ] && {
-            return 1
-        }
+        src="$(get_abs_path $(dirname $0))/${script_cdirs}"
+        [ ! -f ${src} ] && echo NO && return 1
     }
     chmod u+x ${src}
-    return 0
+
+    echo YES
 }
 
 print_help() {
-    echo "Usage: ./install.sh [-h|--help] [--uninstall] [--unalias-cd]"
+    echo "Usage: ./install.sh [-h|--help] [--remove]"
 }
 
-uninstall() {
-    [ -f ~/.bashrc ] && sed -i '/set for cdirs/,/end for cdirs/d' ~/.bashrc
-    [ -f ~/.bash_logout ] && sed -i '/set for cdirs/,/end for cdirs/d' ~/.bash_logout
+remove() {
+    [ -f ~/.bashrc ] \
+        && sed -i '/set for cdirs/,/end for cdirs/d' ~/.bashrc
 }
 
-if [ "$#" -gt 1 ]; then
-    print_help
-    exit 1
-elif [ "$#" -eq 1 ]; then
-    case "$1" in
-        --uninstall)
-            uninstall
-            echo -e "\033[31mcdirs has unistalled, have a fun day\033[0m"
-            exit 0
-            ;;
-        --unalias-cd)
-            unalias_cd=1
-            [ -f ~/.bashrc ] && sed -i '/set for cdir/,/end for cdir/d' ~/.bashrc
-            shift
-            ;;
-        --help|-h)
-            print_help
-            exit 0
-            ;;
-        *)
-            print_help
-            exit 1
-            ;;
-    esac
-fi
+install() {
+    echo -n "Install cdirs ... "
 
-echo -n "finding cdirs.sh ... "
-check_cdirs && echo YES || {
-    echo NO
-    echo -e "\033[31mcan not find cdirs.sh\033[0m"
-    exit 1
-}
-
-uninstall
-echo -n "setting cdirs to ~/.bashrc ... "
 cat >> ~/.bashrc <<EOF
 # == set for cdirs ==
-source ${src}$([ "${unalias_cd}" = "1" ] && echo " --unalias-cd")
+source ${src}
 # == end for cdirs ==
 EOF
-echo "YES"
 
-echo -n "setting cdirs to ~/.bash_logout ... "
-cat >> ~/.bash_logout <<EOF
-# == set for cdirs ==
-[ -n "\${gmpy_cdirs_env}" ] && rm \${gmpy_cdirs_env}
-# == end for cdirs ==
-EOF
 echo "YES"
+}
 
-echo -e "\033[31mcdirs has installed, please reload ~/.bashrc <source ~/.bashrc>\033[0m"
-echo -e "\033[32msee more $([ -z "${not_replace_cd}" ] && echo "cd|")cdir|setdir|lsdir|cldir --help\033[0m"
+main() {
+    if [ "$#" -gt 1 ]; then
+        print_help
+        exit 0
+    elif [ "$#" -eq 1 ]; then
+        case "$1" in
+            --remove)
+                remove
+                echo -e "\033[31mcdirs has unistalled, have a fun day\033[0m"
+                exit 0
+                ;;
+            --help|-h)
+                print_help
+                exit 0
+                ;;
+            *)
+                print_help
+                exit 1
+                ;;
+        esac
+    fi
+
+    check_cdirs || exit 1
+    remove &>/dev/null
+    install || exit 1
+
+    echo -e "\033[31mcdirs has installed," \
+        "please reload ~/.bashrc <source ~/.bashrc>\033[0m"
+    echo -e "\033[32msee more cd|cds|cdl|cdd|cdb|cdf|cdj -h\033[0m"
+}
+
+main $@

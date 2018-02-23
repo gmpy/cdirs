@@ -1,449 +1,201 @@
 #!/bin/bash
 
-# config file
-gmpy_cdirs_config="~/.cdirsrc"
-
-cdir_options_list="hn:l:p:t:d:f:"
-lsdir_options_list="hp:"
-cldir_options_list="gha"
-setdir_options_list="hg"
-
-cdir_options_list_full="reload,reset,num:,label:,path:,help,tag:,find:,depth:"
-lsdir_options_list_full="path:,help"
-cldir_options_list_full="all,reset,help"
-setdir_options_list_full="global,help"
-init_options_list_full="unalias-cd"
-
-cdir() {
-    local _type label_path opts tag_path fdir fdepth
-
-    opts="$(getopt -l "${cdir_options_list_full}" -o "${cdir_options_list}" -- $@)" || return 1
-    eval set -- "${opts}"
-    while true
-    do
-        case "$1" in
-            -h|--help)
-                gmpy_cdirs_print_help "cdir"
-                return 0
-                ;;
-            -l|--label)
-                _type="label"
-                shift
-                label_path="$1"
-                shift
-                break
-                ;;
-            -n|--num)
-                _type="num"
-                shift
-                label_path="$1"
-                shift
-                break
-                ;;
-            -p|--path)
-                _type="path"
-                shift
-                label_path="$1"
-                shift
-                break
-                ;;
-            --reload)
-                gmpy_cdirs_load_config
-                gmpy_cdirs_load_global_labels
-                return 0
-                ;;
-            --reset)
-                gmpy_cdirs_reset
-                return 0
-                ;;
-            -t|--tag)
-                shift
-                gmpy_cdirs_check_label_existed "$1" || {
-                    \echo "$1: no this tag|label"
-                    return 1
-                }
-                tag_path="$(_cdir "$1" "label")"
-                shift
-                ;;
-            -f|--find)
-                shift
-                fdir="$1"
-                shift
-                ;;
-            -d|--depth)
-                shift
-                gmpy_cdirs_check_whether_num "$1" || {
-                    \echo "$1: -d|--depth need a num"
-                    return 1
-                }
-                fdepth="$1"
-                shift
-                ;;
-            --)
-                shift
-                break
-        esac
-    done
-
-    [ -z "${label_path}" ] && label_path="$*"
-
-    # -f|--find|-F|--Find
-    if [ -n "${fdir}" ]; then
-        tag_path=${tag_path:-"."}
-        fdepth=${fdepth:-${gmpy_cdirs_find_default_depth}}
-        gmpy_cdirs_cd_find "${fdir}" "${tag_path}" "${fdepth}"
-    else
-        gmpy_cdirs_builtin_cd "$(_cdir "${label_path}" "${_type}")"
-    fi
+################# library #################
+cdirs_set_mark() {
+    cdirs_yellow "[create] "
+    cdirs_ls_one "," "${PWD}"
+    cdirs_mark="${PWD}"
 }
 
-setdir() {
-    local flag opts
-
-    flag="no_global"
-    opts="$(getopt -l "${setdir_options_list_full}" -o "${setdir_options_list}" -- $@)" || return 1
-    eval set -- "${opts}"
-    while true
-    do
-        case "$1" in
-            -h|--help)
-                gmpy_cdirs_print_help "setdir"
-                return 0
-                ;;
-            -g|--global)
-                flag="global"
-                shift
-                ;;
-            --)
-                shift
-                break
-        esac
-    done
-
-    if [ "$#" -lt "2" ]; then
-        if [ "$1" = ',' ]; then
-            gmpy_cdirs_set_mark
-        elif gmpy_cdirs_check_label $1; then
-            _setdir $1 "." "${flag}"
-        else
-            gmpy_cdirs_print_help "setdir"
-        fi
-    elif [ "$#" -eq "2" ]; then
-        _setdir $@ "${flag}"
-    elif [ "$#" -gt "2" ]; then
-        _setdir "$1" "$(shift;\echo "$*")" "${flag}"
-    fi
+cdirs_get_mark() {
+    echo ${cdirs_mark}
 }
 
-lsdir() {
-    local opts word
-    local flag="not_only_path"
-
-    opts=`getopt -o "${lsdir_options_list}" -l "${lsdir_options_list_full}" -- $@` || return 1
-    eval set -- "${opts}"
-    while true
-    do
-        case "$1" in
-            -h|--help)
-                gmpy_cdirs_print_help "lsdir"
-                return 0
-                ;;
-            -p|--path)
-                flag="only_path"
-                shift
-                word="$1"
-                shift
-                ;;
-            --)
-                shift
-                break
-                ;;
-        esac
-    done
-
-    [ -n "${word}" -a "${flag}" = "only_path" ] \
-        && _lsdir "${flag}" "${word}" \
-        || _lsdir "${flag}" $@
+cdirs_del_mark() {
+    cdirs_yellow "[delete] "
+    cdirs_ls_one "," "${cdirs_mark}"
+    unset cdirs_mark
 }
 
-cldir() {
-    local opts all_flag
-    local global_flag="no_global"
-
-    opts="$(getopt -l "${cldir_options_list_full}" -o "${cldir_options_list}" -- $@)" || return 1
-    eval set -- "${opts}"
-    while true
-    do
-        case "$1" in
-            -h|--help)
-                gmpy_cdirs_print_help "cldir"
-                return 0
-                ;;
-            -a|--all)
-                shift
-                all_flag="all"
-                ;;
-            -g|--global)
-                shift
-                global_flag="global"
-                ;;
-            --)
-                shift
-                break
-                ;;
-        esac
-    done
-
-    if [ "${all_flag}" = "all" ]; then
-        local res="n"
-        while true
-        do
-            read -n 1 -p "Are you sure to clear all labels$([ "${global_flag}" = "global" ] \
-                && \echo " but also global labels")? [y/n] " res
-            \echo
-            case "${res}" in
-                y|Y)
-                    break
-                    ;;
-                n|N)
-                    return 0
-                    ;;
-                *)
-                    continue
-                    ;;
-            esac
-        done
-        gmpy_cdirs_clear_all "${global_flag}"
-        return 0
-    fi
-
-    if [ $# -lt 1 ]; then
-        gmpy_cdirs_print_help "cldir"
-        return 1
-    fi
-    _cldir "${global_flag}" $@
-}
-
-# _cdir <label|num|path> [num|label|path](point out the type)
-_cdir() {
-    [ -z "$1" ] && return 0
-    [ -d "$1" -a ! "$2" = "num" -a ! "$2" = "label" ] && {
-        \echo "$1"
-        return 0
-    }
-    \echo "$(gmpy_cdirs_get_path "$1" "$2")"
-}
-
-# _lsdir <only_path|not_only_path> [num1|label1|path1] [num2|label2|path2] ...
-_lsdir() {
-    local path_flag="$1" && shift
-    [ "${path_flag}" = "not_only_path" ] && {
-        printf '\033[32m%s\t%-16s\t%s\033[0m\n' "num" "label" "path"
-        printf '\033[32m%s\t%-16s\t%s\033[0m\n' "---" "-----" "----"
-    }
-    if [ "$#" -gt 0 ]; then
-        for para in $@
-        do
-            if [ "${para}" = "," ]; then
-                if [ "${path_flag}" = "not_only_path" ]; then
-                    gmpy_cdirs_list_mark
-                else
-                    gmpy_cdirs_get_path "0" "num"
-                fi
-            else
-                if [ "${path_flag}" = "not_only_path" ]; then
-                    gmpy_cdirs_ls_one_dir "${para}"
-                else
-                    gmpy_cdirs_get_path "${para}"
-                fi
-            fi
-        done
-    else
-        gmpy_cdirs_ls_all_dirs
-    fi
-}
-
-# _setdir <label> <path> <global|no_global>
-_setdir() {
-    local path="$(gmpy_cdirs_get_absolute_path "$2")"
-    local num
-
-    if [ ! -d "${path}" ]; then
-        \echo -e "\033[31m$2 isn't existed or directory\033[0m"
-        return 2
-    fi
-
-    gmpy_cdirs_check_label "$1" || {
-        \echo -en "\033[31mERROR: label fromat\n\033[0m"
-        \echo -n "label starts with "
-        [ -n "${gmpy_cdirs_mark_symbol}" ] \
-            && \echo -n "'${gmpy_cdirs_mark_symbol}'" \
-            || \echo -n "letter"
-        \echo -n " and combinates with letter, number and symbol "
-        \echo "'${gmpy_cdirs_label_symbol}'"
-        return 1
-    }
-
-    if gmpy_cdirs_check_label_existed "$1"; then
-        \echo -en "\033[31mmodify:\033[0m\t"
-        num="$(gmpy_cdirs_get_num_from_label "$1")"
-        gmpy_cdirs_clear_dir "$3" "$1" &>/dev/null
-    else
-        \echo -en "\033[31mcreate:\033[0m\t"
-        gmpy_cdirs_add_num_cnt
-        num="$(gmpy_cdirs_get_num_cnt)"
-    fi
-
-    gmpy_cdirs_set_env "$3" "${num}" "$1" "${path}"
-    gmpy_cdirs_ls_format "${num}" "$1" "${path}"
-}
-
-# _cldir <no_global|global> <num1|label1|path1> <num2|label2|path2> ...
-_cldir() {
-    local global_flag="$1"
-    shift
-
-    for para in $@
-    do
-        if [ "${para}" = "," ]; then
-            gmpy_cdirs_clear_mark
-        else
-            gmpy_cdirs_clear_dir "${global_flag}" "${para}"
-        fi
-    done
-}
-
-##########################################################################################
-#                                                                                        #
-#   cdirs library                                                                        #
-#   version: 2.000                                                                       #
-#   author: gmpy                                                                         #
-#   date: 2017-1-10                                                                      #
-#                                                                                        #
-##########################################################################################
-
-# /tmp/cdirs/cdirs.env.$$
-# <num> <label> <path>
-# 3     work    /home/user/cdirs
-
-#================ count num ================#
-gmpy_cdirs_get_num_cnt() {
-    [ -z "${gmpy_cdirs_cnt}" ] && export gmpy_cdirs_cnt=1
-    \echo "${gmpy_cdirs_cnt}"
-}
-
-gmpy_cdirs_add_num_cnt() {
-    export gmpy_cdirs_cnt="$(( ${gmpy_cdirs_cnt} + 1 ))"
-}
-
-#================ mark ================#
-# gmpy_cdirs_set_mark
-gmpy_cdirs_set_mark() {
-    [ -r "${gmpy_cdirs_env}" -a -w "${gmpy_cdirs_env}" ] || return 1
-    if \grep "^0 " ${gmpy_cdirs_env} &>/dev/null; then
-        gmpy_cdirs_clear_dir "no_global" "0" &>/dev/null
-        \echo -en "\033[31mmodify:\033[0m\t"
-    else
-        \echo -en "\033[31mcreate:\033[0m\t"
-    fi
-    gmpy_cdirs_set_env "no_global" "0" "," "${PWD}"
-    gmpy_cdirs_list_mark
-}
-
-# gmpy_cdirs_list_mark
-gmpy_cdirs_list_mark() {
-    gmpy_cdirs_ls_one_dir "0"
-}
-
-# gmpy_cdirs_clear_mark
-gmpy_cdirs_clear_mark() {
-    gmpy_cdirs_check_label_existed "0" && {
-        gmpy_cdirs_clear_dir "no_global" "0"
-    }
-}
-
-#================ GET path\label\num\env ================#
-
-# gmpy_cdirs_get_path_from_num <num>
-gmpy_cdirs_get_path_from_num() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && eval "\awk '\$1~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
-}
-
-# gmpy_cdirs_get_path_from_label <label>
-gmpy_cdirs_get_path_from_label() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && eval "\awk '\$2~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
-}
-
-# gmpy_cdirs_get_label_from_num <num>
-gmpy_cdirs_get_label_from_num() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && eval "\awk '\$1~/^$1$/{print \$3}' ${gmpy_cdirs_env}"
-}
-
-# gmpy_cdirs_get_num_from_label <label>
-gmpy_cdirs_get_num_from_label() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && eval "\awk '\$2~/^$1$/{print \$1}' ${gmpy_cdirs_env}"
-}
-
-# gmpy_cdirs_get_env_from_num <num>
-gmpy_cdirs_get_env_from_num() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && eval "\awk '\$1~/^$1$/{print \$1 \" \" \$2 \" \" \$3}' ${gmpy_cdirs_env}"
-}
-
-# gmpy_cdirs_get_env_from_path <path>
-# allow more than one envs
-gmpy_cdirs_get_env_from_path() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && \egrep "$1/?$" ${gmpy_cdirs_env} | sort -k 1 -n | \awk '{print $1 " " $2 " " $3}'
-}
-
-# gmpy_cdirs_get_env_from_label <label>
-# enable \echo more than one env if input regular expression
-gmpy_cdirs_get_env_from_label() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && eval "\awk '\$2~/^$1$/{print \$1 \" \" \$2 \" \" \$3}' ${gmpy_cdirs_env}" \
-            | sort -k 1 -n
-}
-
-# gmpy_cdirs_get_all_num
-gmpy_cdirs_get_all_num() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && \awk '{print $1}' ${gmpy_cdirs_env}
-}
-
-# gmpy_cdirs_get_all_label
-gmpy_cdirs_get_all_label() {
-    [ -r "${gmpy_cdirs_env}" ] \
-        && \awk '($2!~/^,$/ && $1!~/^$/){print $2}' ${gmpy_cdirs_env}
-}
-
-# gmpy_cdirs_get_path <label|num|path> [num|label|path](point out the type)
-gmpy_cdirs_get_path() {
-    local _type
-    [ -n "$2" ] && _type="$2" || _type="$(gmpy_cdirs_check_type "$1")"
-    case "${_type}" in
-        "num")
-            \echo "$(gmpy_cdirs_get_path_from_num "$1")"
+cdirs_help() {
+    case "$1" in
+        "cd")
+            cdirs_white "Usage: cd [option]... <dir|label|${cdirs_mark_symbol}>\n"
+            cdirs_white "change directory to 'dir'"
+            cdirs_white " or label-dir or mark-dir '${cdirs_mark_symbol}'."
+            cdirs_white " see also 'cds -h'\n\n"
+            cdirs_white "[OPTIONS]\n"
+            cdirs_white "  -h        :  show this message and exit\n"
+            cdirs_white "  -l        :  regard as label rather than path\n"
+            cdirs_white "  -g        :  cd to global label, lose sight of local label\n"
+            cdirs_white "  --reset   :  reset cdirs\n"
+            cdirs_white "  --reload  :  reload config and default label\n\n"
+            cdirs_white "[NOTE]\n"
+            cdirs_white "1. if match both dir and label, change to dir\n"
+            cdirs_white "2. if match label from both local and global, change to local\n\n"
+            cdirs_white "We have 3 types of label: default|global|local\n"
+            cdirs_white "Only when initialize cdirs, default labels on ${cdirs_default_env}"
+            cdirs_white " are loaded.\n"
+            cdirs_white "Label is set to global on ${cdirs_global_env} by default"
+            cdirs_white " which are shared for all bash.\n"
+            cdirs_white "However, the change directory priority: local > global ,\n"
+            cdirs_white "which means cdirs will change to local rather than global"
+            cdirs_white " if label match both global and local.\n"
             ;;
-        "label")
-            gmpy_cdirs_check_label_existed "$1" \
-                && \echo "$(gmpy_cdirs_get_path_from_label "$1")" \
-                || \echo "$1"
+        "cds")
+            cdirs_white "Usage: cds [option]... [${cdirs_mark_symbol}] <label> [dir]\n"
+            cdirs_white "sign label for dir (current dir by default) to global or local(-l)\n"
+            cdirs_white "'cds ,' means mark current dir,"
+            cdirs_white " and we can go back mark-dir by 'cd ,' anywhere anytime\n\n"
+            cdirs_white "[OPTIONS]\n"
+            cdirs_white "  -h :  show this message and exit\n"
+            cdirs_white "  -g :  sign in global\n"
+            cdirs_white "  -l :  sign in local\n"
+            cdirs_white "  -d :  sign in default\n"
+            cdirs_white "  -a :  same as '-lgd'\n\n"
+            cdirs_white "[NOTE]\n"
+            cdirs_white "1. if no sign directory, use current directory instead.\n"
+            cdirs_white "2. sign to global by default which are shared for all bash\n\n"
+            cdirs_white "We have 3 types of label: default|global|local\n"
+            cdirs_white "Only when initialize cdirs, default labels on ${cdirs_default_env}"
+            cdirs_white " are loaded.\n"
+            cdirs_white "Label is set to global on ${cdirs_global_env} by default"
+            cdirs_white " which are shared for all bash.\n"
+            cdirs_white "However, the change directory priority: local > global ,\n"
+            cdirs_white "which means cdirs will change to local rather than global"
+            cdirs_white " if label match both global and local.\n"
             ;;
-        *)
-            \echo "$(gmpy_cdirs_get_absolute_path $1)"
+        "cdd")
+            cdirs_white "Usage: cdd [option]... [${cdirs_mark_symbol}|label]\n"
+            cdirs_white "delete labels of default/global/local or delete mark-dir.\n"
+            cdirs_white "if no any argument, delete all glboal labels.(carefully)\n\n"
+            cdirs_white "[OPTIONS]\n"
+            cdirs_white "\t-h :\tshow this message and exit\n"
+            cdirs_white "\t-d :\tdelete defualt\n"
+            cdirs_white "\t-l :\tdelete local\n"
+            cdirs_white "\t-g :\tdelete global\n"
+            cdirs_white "\t-a :\tsame as '-lgd'\n\n"
+            cdirs_white "[NOTE]\n"
+            cdirs_white "1. if no any argument, delete all global labels. (carefully)\n\n"
+            cdirs_white "We have 3 types of label: default|global|local\n"
+            cdirs_white "Only when initialize cdirs, default labels on ${cdirs_default_env}"
+            cdirs_white " are loaded.\n"
+            cdirs_white "Label is set to global on ${cdirs_global_env} by default"
+            cdirs_white " which are shared for all bash.\n"
+            cdirs_white "However, the change directory priority: local > global ,\n"
+            cdirs_white "which means cdirs will change to local rather than global"
+            cdirs_white " if label match both global and local.\n"
+            ;;
+        "cdl")
+            cdirs_white "Usage: cdl [option]... [${cdirs_mark_symbol}|label]\n"
+            cdirs_white "list all labels of top/default/local/global of global|local\n"
+            cdirs_white "'top' means labels are from local cover global\n"
+            cdirs_white "'cdl ,' will list mark-dir\n\n"
+            cdirs_white "[OPTIONS]\n"
+            cdirs_white "\t-h :\tshow this message and exit\n"
+            cdirs_white "\t-p :\tshow path only\n"
+            cdirs_white "\t-d :\tshow defualt\n"
+            cdirs_white "\t-l :\tshow local\n"
+            cdirs_white "\t-g :\tshow global\n"
+            cdirs_white "\t-a :\tsame as '-lgd'\n\n"
+            cdirs_white "[NOTE]\n"
+            cdirs_white "1. if no any argument, list top (local cover global),"
+            cdirs_white " which can use for 'cd <label>' directly\n\n"
+            cdirs_white "We have 3 types of label: default|global|local\n"
+            cdirs_white "Only when initialize cdirs, default labels on ${cdirs_default_env}"
+            cdirs_white " are loaded.\n"
+            cdirs_white "Label is set to global on ${cdirs_global_env} by default"
+            cdirs_white " which are shared for all bash.\n"
+            cdirs_white "However, the change directory priority: local > global ,\n"
+            cdirs_white "which means cdirs will change to local rather than global"
+            cdirs_white " if label match both global and local.\n"
+            ;;
+        "cdf")
+            cdirs_white "Usage: cdf [option]... <dir>\n"
+            cdirs_white "find directly from current directory or label-dir\n\n"
+            cdirs_white "[OPTIONS]\n"
+            cdirs_white "\t-h :\tshow this message and exit\n"
+            cdirs_white "\t-d <num>:\tfind maxdepth\n"
+            cdirs_white "\t-t <label>:\tfind from label\n"
+            cdirs_white "[NOTE]\n"
+            cdirs_white "1. find maxdepth is ${cdirs_find_depth} by default\n"
+            cdirs_white "2. find current directory by default\n"
+            ;;
+        "cdb")
+            cdirs_white "Usage: cdb [option]... <dir|num>\n"
+            cdirs_white "change directory to dir (must be back-dir).\n"
+            cdirs_white "cdb is usefull if you want to go back.\n"
+            cdirs_white "'back-dir' is any back dir on current directory, for example,"
+            cdirs_white " current path is '/a/b/c/d',\n"
+            cdirs_white "the back-dir are : a b c d\n"
+            cdirs_white "'cdb 2' is same as 'cd ../..' if '2' do not match from back-dir\n\n"
+            cdirs_white "[OPTIONS]\n"
+            cdirs_white "\t-h :\tshow this message and exit\n"
+            cdirs_white "\t-d <num> :\tregard as depth num rather than dir name\n"
+            ;;
+        "cdj")
+            cdirs_white "Usage: cdj [option]... <dir>\n"
+            cdirs_white "jump to dir which had changed to before\n\n"
+            cdirs_white "[OPTIONS]\n"
+            cdirs_white "\t-h :\tshow this message and exit\n"
             ;;
     esac
 }
 
-# gmpy_cdirs_get_absolute_path <path>
-gmpy_cdirs_get_absolute_path() {
+cdirs_red() {
+    \echo -ne "\033[31m$@\033[0m"
+}
+
+cdirs_yellow() {
+    \echo -ne "\033[33m$@\033[0m"
+}
+
+cdirs_green() {
+    \echo -ne "\033[32m$@\033[0m"
+}
+
+cdirs_white() {
+    \echo -ne "$@"
+}
+
+cdirs_reset() {
+    rm -f ${cdirs_global_env}
+    rm -f ${cdirs_local_env}
+    unset cdirs_config
+    unset cdirs_local_env
+    unset cdirs_global_env
+    unset cdirs_default_env
+    unset cdirs_mark_symbol
+    unset cdirs_label_symbol
+    unset cdirs_find_depth
+    unset cdirs_find_pre_base
+    unset cdirs_find_pre_dirs
+    unset cdirs_find_pre_depth
+    unset cdirs_jump_list
+
+    cdirs_init
+}
+
+cdirs_load_config() {
+    [ -f "${cdirs_config}" ] && source ${cdirs_config}
+}
+
+cdirs_load_default() {
+    [ -r ${cdirs_default_env} ] || return 0
+
+    cdirs_penv="${cdirs_local_env}"
+    local line label path
+    while read line
+    do
+        \grep -q "=" <<< ${line} || continue
+        cdirs_cds_do $(sed 's/=/ /g' <<< ${line})
+    done <<< "$(egrep -v "^#.*$|^$" ${cdirs_default_env})"
+    unset cdirs_penv
+}
+
+cdirs_get_abs_path() {
     if [ -d "$1" ]; then
-        \cd "$1" &>/dev/null && pwd | \sed 's#/$##g'
+        \cd "$1" &>/dev/null && pwd
     elif [ "$1" = "-" ]; then
         \echo ${OLDPWD}
     else
@@ -451,530 +203,738 @@ gmpy_cdirs_get_absolute_path() {
     fi
 }
 
-#================ CHECK path\label\num ================#
+cdirs_check_label() {
+    local format
+    format="^${cdirs_mark_symbol}[[:alpha:]]"
+    format="${format}([[:alnum:]]*${cdirs_label_symbol}*)*$"
+    if ! \grep -qE ${format} <<< "$1"; then
+        cdirs_red "INVALID label: $1\n"
+        cdirs_green "label starts with"
+        cdirs_green "${cdirs_mark_symbol}letter and combinates"
+        cdirs_green "with letter, number and symbol ${cdirs_label_symbol}\n"
+        cdirs_green "eg. ${cdirs_mark_symbol}work"
+        cdirs_green "${cdirs_mark_symbol}kernel${cdirs_label_symbol}4\n"
+        return 1
+    else
+        return 0
+    fi
+}
 
-# gmpy_cdirs_check_type <label|num|path>
-# only check the string format but not whether exist the dir
-# num: only number
-# path: string wiht ./ or ../ or /, sometime it can be ~ or begin with ~
-# label: others else
-gmpy_cdirs_check_type() {
-    if [ "$#" -ne "1" ]; then
+#cdirs_set_env <label> <path>
+cdirs_set_env() {
+    local env
+    for env in ${cdirs_penv}
+    do
+        \echo "$1 = $2" >> ${env}
+        cdirs_yellow "[create]"
+        cdirs_green "[$(\awk -F'-' '{print $2}' <<< $(basename ${env}))] "
+        cdirs_ls_one "$1" "$2"
+    done
+}
+
+# cdirs_del_env <label>
+cdirs_del_env() {
+    local env path
+    for env in ${cdirs_penv}
+    do
+        [ -w "${env}" ] || continue
+        path="$(awk "/^$1 *=/{print \$3}" ${env})"
+        [ -z "${path}" ] && continue
+
+        \sed -i "/^$1 *=/d" ${env}
+        cdirs_yellow "[delete]"
+        cdirs_green "[$(\awk -F'-' '{print $2}' <<< $(basename ${env}))] "
+        cdirs_ls_one "$1" "${path}"
+    done
+}
+
+# cdirs_del_all
+cdirs_del_all() {
+    local p res msg
+    for p in ${cdirs_penv}
+    do
+        msg="Are you sure to clear all"
+        msg="${msg} $(awk -F'-' '{print $2}' <<< "$(basename ${p})") labels?"
+        while true
+        do
+            read -p "${msg} [y/n]: " res
+            case "${res}" in
+                y|Y)
+                    [ -w "${p}" -a -x "${p}" ] && rm -f ${p}
+                    break
+                    ;;
+                n|N)
+                    break
+                    ;;
+                *)
+                    echo
+                    continue
+                    ;;
+            esac
+        done
+    done
+    return 0
+}
+
+cdirs_ls_top() {
+    local top line label path
+    top="$(grep -w "$(sed 's# #\\\|#g' <<< $@)" ${cdirs_global_env} 2>/dev/null)"
+
+    while read line
+    do
+        \grep -q "=" <<< ${line} || continue
+        label="$(\awk '{print $1}' <<< ${line})"
+        top="$(sed -e "/^${label}/d" <<< "${top}")"
+        top="$(echo -e "${top}\n${line}")"
+    done <<< "$(grep -w "$(sed 's# #\\\|#g' <<< $@)" ${cdirs_local_env})"
+
+    while read line
+    do
+        \grep -q "=" <<< ${line} || continue
+        cdirs_yellow "[top] "
+        cdirs_ls_one $(sed 's/=/ /g' <<< ${line})
+    done <<< "${top}"
+}
+
+# cdirs_get_path <label> <penv>
+cdirs_get_path() {
+    [ -r "$2" ] || return 1
+    local path="$(\awk "\$1~/^$1$/{print \$3}" $2)"
+    [ -z "${path}" ] && return 1
+    eval "\\echo ${path}"
+}
+
+# cdirs_get_top <label>
+cdirs_get_top() {
+    [ -d "$@" ] && echo "$@" && return 0
+
+    ! cdirs_check_label "$1" &>/dev/null && echo "$@" && return 0
+    cdirs_get_path "$1" ${cdirs_local_env} && return 0
+    cdirs_get_path "$1" ${cdirs_global_env} && return 0
+
+    echo "$@"
+}
+
+cdirs_ls_one() {
+    local label=$1 && shift
+    local path="$(cdirs_get_abs_path "$@")"
+    cdirs_white "${label} : ${path}\n"
+}
+
+cdirs_get_all_label() {
+    \awk '$1!~/^,$/{print $1}' ${cdirs_local_env} 2> /dev/null
+    \awk '$1!~/^,$/{print $1}' ${cdirs_global_env} 2> /dev/null
+}
+
+cdirs_fix_cd() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local fix_list
+
+    if [ "${cur:0:2}" = "--" ]; then
+        fix_list="--reload --reset"
+    elif [ "${cur:0:1}" = "-" ]; then
+        fix_list="-h -l -g"
+    else
+        fix_list="$(cdirs_get_all_label)"
+    fi
+
+    COMPREPLY=($(compgen -W "${fix_list}" -- "${cur}"))
+}
+
+cdirs_fix_cds() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local fix_list
+
+    if [ "${cur:0:1}" = "-" ]; then
+        fix_list="-h -g -d -a -l"
+    else
+        fix_list="$(cdirs_get_all_label)"
+    fi
+
+    COMPREPLY=($(compgen -W "${fix_list}" -- "${cur}"))
+}
+
+cdirs_fix_cdl() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local fix_list
+
+    if [ "${cur:0:1}" = "-" ]; then
+        fix_list="-h -g -d -a -l"
+    else
+        fix_list="$(cdirs_get_all_label)"
+    fi
+
+    COMPREPLY=($(compgen -W "${fix_list}" -- "${cur}"))
+}
+
+cdirs_fix_cdd() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local fix_list
+
+    if [ "${cur:0:1}" = "-" ]; then
+        fix_list="-h -g -d -a -l"
+    else
+        fix_list="$(cdirs_get_all_label)"
+    fi
+
+    COMPREPLY=($(compgen -W "${fix_list}" -- "${cur}"))
+}
+
+cdirs_fix_cdj() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local fix_list
+
+    fix_list="$(sed 's/ /\n/g' <<< "${cdirs_jump_list[@]}" \
+        | xargs -I {} basename {})"
+
+    COMPREPLY=($(compgen -W "${fix_list}" -- "${cur}"))
+}
+
+cdirs_fix_cdb() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local fix_list
+
+    if [ "${cur:0:1}" = "-" ]; then
+        fix_list="-d"
+    else
+        fix_list="$(sed 's#/# #g' <<< ${PWD})"
+    fi
+
+    COMPREPLY=($(compgen -W "${fix_list}" -- "${cur}"))
+}
+
+cdirs_fix_cdf() {
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local pre="${COMP_WORDS[COMP_CWORD-1]}"
+    local fix_list
+
+    if [ "${cur:0:1}" = "-" ]; then
+        fix_list="-h -d -t"
+    elif [ "${pre}" = "-t" ]; then
+        fix_list="$(cdirs_get_all_label)"
+    else
+        local base depth
+        base="$(grep -o -- '-t[[:space:]]*[[:print:]]*' <<< ${COMP_WORDS[@]} \
+            | awk '{print $2}')"
+        if [ -n "${base}" ]; then
+            base=`cdirs_get_path ${base} ${cdirs_local_env}`
+            base="${base:-"$(cdirs_get_path ${base} ${cdirs_global_env})"}"
+        fi
+        base="${base:-"${PWD}"}"
+
+        depth="$(grep -o -- '-d[[:space:]]*[[:print:]]*' <<< ${COMP_WORDS[@]} \
+            | awk '{print $2}')"
+        if [ -n "${depth}" ]; then
+            \egrep -q "^[0-9]+$" <<< "${depth}" || unset depth
+        fi
+        depth="${depth:-"${cdirs_find_depth}"}"
+
+        # save previous tag|depth for fix quickly
+        if ! [ "${base}" = "${cdirs_find_pre_base}" \
+            -a "${depth}" = "${cdirs_find_pre_depth}" \
+            -a -n "${cdirs_find_pre_dirs}" ]; then
+            cdirs_find_pre_dirs="$(\
+                find -L ${base} -maxdepth ${depth} -type d 2>/dev/null \
+                    | grep -Ev '/\.[[:alnum:]]+' \
+                    | sed "s#${base}##" \
+                    | xargs -I {} basename {})"
+            cdirs_find_pre_depth="${depth}"
+            cdirs_find_pre_base="${base}"
+        fi
+        fix_list="${cdirs_find_pre_dirs}"
+    fi
+
+    COMPREPLY=($(compgen -W "${fix_list}" -- "${cur}"))
+}
+
+# cdirs_jump <path>
+cdirs_jump() {
+    if \cd "$@" && cdirs_white "${PWD}\n"; then
+        cdirs_jump_list=( ${PWD} \
+            $(sed "s# #\n#g" <<< ${cdirs_jump_list[@]} | grep -vw "^${PWD}$"))
+        return 0
+    else
+        # cd failed, delete
+        cdirs_jump_list=( \
+            $(sed "s# #\n#g" <<< ${cdirs_jump_list[@]} | grep -vw "^$1$"))
         return 1
     fi
+}
 
-    if $(\echo "$1" | \egrep "^[0-9]+$" &>/dev/null); then
-        \echo "num"
-        return 0
+# cdirs_choice
+cdirs_choice() {
+    local cnt=0
+    local all=($@)
+    local dir
+
+    cdirs_white "Which one do you want:\n" > /dev/tty
+    for dir in ${all[@]}
+    do
+        \echo "${cnt}: ${dir}" > /dev/tty
+        cnt="$(( ${cnt} + 1 ))"
+    done
+
+    while true
+    do
+        read -p "Your choice [default 0]: " cnt
+        [ -z "${cnt}" ] && cnt=0
+        \egrep -q "^[0-9]+$" <<< "${cnt}" || {
+            cdirs_red "Invaild Num: $cnt\n" > /dev/tty
+            continue
+        }
+        [ "${cnt}" -ge "${#all[@]}" ] && {
+            cdirs_red "Invaild Num: $cnt\n" > /dev/tty
+            continue
+        }
+        echo "${all[cnt]}"
+        break
+    done
+}
+
+cdirs_cd_do() {
+    if [ -z "$1" ]; then
+        cdirs_jump
+    elif [ "$1" = '-' ]; then
+        cdirs_jump "${OLDPWD}"
+    elif [ "$1" = "${cdirs_mark_symbol}" ]; then
+        cdirs_jump "$(cdirs_get_mark)"
+    elif [ -n "${cdirs_penv}" ]; then
+        cdirs_jump "$(cdirs_get_path "$1" "${cdirs_penv}")"
+    else
+        cdirs_jump "$(cdirs_get_top "$1")"
+    fi
+}
+
+#cdirs_cds_do <label> <path>
+cdirs_cds_do() {
+    local label=$1 && shift
+    local path="$(cdirs_get_abs_path "$@")"
+    [ ! -d "$(eval "\\echo ${path}")" ] \
+        && cdirs_red "non-existent or directory: $@\n" \
+        && return 1
+    cdirs_check_label "${label}" || return 1
+
+    cdirs_del_env "${label}" &>/dev/null
+    cdirs_set_env "${label}" "${path}"
+}
+
+# cdirs_cdl_do <labels>
+cdirs_cdl_do() {
+    if [ -z "${cdirs_penv}" ]; then
+        [ -n "$(cdirs_get_mark)" ] \
+            && cdirs_yellow "[top] " \
+            && cdirs_ls_one "," "$(cdirs_get_mark)"
+        cdirs_ls_top $@
+        return
     fi
 
-    if [ -n "$(\echo "$1" | \egrep "\./|\.\./|/")" ] \
-        || [ "${1:0:1}" = "~" ] \
-        || [ "$1" = "-" ] \
-        || [ "$1" = "." ] \
-        || [ "$1" = ".." ]; then
-        \echo "path"
-        return 0
+    local p
+    for p in ${cdirs_penv}
+    do
+        [ -r "${p}" ] || continue
+        while read line
+        do
+            \grep -q "=" <<< ${line} || continue
+            \awk -F'-' '{printf "\033[33m[%s] \033[0m", $2}' <<< $(basename ${p})
+            cdirs_ls_one $(sed 's/=/ /g' <<< ${line})
+        done <<< "$(grep -w "$(sed 's# #\\\|#g' <<< $@)" ${p})"
+    done
+}
+
+cdirs_cdd_do() {
+    [ "$#" -eq 0 ] && cdirs_del_all && return
+
+    local label
+    for label in $@
+    do
+        [ "${label}" = "," ] && cdirs_del_mark && continue
+        cdirs_del_env "${label}"
+    done
+}
+
+cdirs_cdb_do() {
+    # by num with -d
+    if [ -n "$2" ]; then
+        [ "$2" -ge "$(grep -o '/' <<< ${PWD} | wc -l)" ] && return
+        cdirs_jump $(eval "echo ${PWD} | sed -r 's#(/[^/]+){$2}\$##'")
+        return
     fi
 
-    gmpy_cdirs_check_label "$1" && \echo "label" || \echo "null"
+    local path cur max_cnt
+    # by name - get
+    if [ -n "$1" ]; then
+        cur="${PWD}"
+        while cur=$(grep -wo ".*/$1" <<< ${cur})
+        do
+            path=(${path[@]} ${cur})
+            cur="$(dirname "${cur}")"
+        done
+        max_cnt="${#path[@]}"
+    else
+        cur="${PWD}"
+        while [ "${cur}" != '/' ]
+        do
+            path=(${path[@]} ${cur})
+            cur="$(dirname "${cur}")"
+        done
+        max_cnt="${#path[@]}"
+    fi
+    # by name - do
+    if [ "${max_cnt}" -le 0 ]; then
+        \egrep -q "^[0-9]+$" <<< "$1" || return
+        [ "$1" -ge "$(grep -o '/' <<< ${PWD} | wc -l)" ] && return
+        cdirs_jump $(eval "echo ${PWD} | sed -r 's#(/[[:alnum:]]+){$1}\$##'")
+        return
+    elif [ "${max_cnt}" -eq 1 ]; then
+        cdirs_jump "${path}"
+    else
+        cdirs_jump "$(cdirs_choice ${path[@]})"
+    fi
 }
 
-# gmpy_cdirs_check_label <label>
-gmpy_cdirs_check_label() {
-    [ -n "$(\echo "$1" \
-        | \egrep "^${gmpy_cdirs_mark_symbol}([[:alnum:]]+${gmpy_cdirs_label_symbol}*)*$")" ] \
-        && return 0 || return 1
+# cdirs_cdf_do <base> <depth> <dir>
+cdirs_cdf_do() {
+    local f_dirs f_cnt
+    f_dirs=($(find -L $1 -type d -maxdepth $2 -name $3 2>/dev/null \
+        | grep -Ev '/\.[[:alnum:]]+'))
+    f_cnt=${#f_dirs[@]}
+
+    if [ "${f_cnt}" -gt "1" ]; then
+        cdirs_jump "$(cdirs_choice ${f_dirs[@]})"
+    elif [ "${f_cnt}" -eq "1" ]; then
+        cdirs_jump "${f_dirs}"
+    else
+        cdirs_red "Not Found: $1\n"
+    fi
 }
 
-#gmpy_cdirs_check_label_existed <num|label>
-gmpy_cdirs_check_label_existed() {
-    [ -r "${gmpy_cdirs_env}" ] || return 1
-    case "$(gmpy_cdirs_check_type "$1")" in
-        "label")
-            \grep " $1 " ${gmpy_cdirs_env} &>/dev/null && return 0 || return 1
-            ;;
-        "num")
-            \grep "^$1 " ${gmpy_cdirs_env} &>/dev/null && return 0 || return 1
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
-#================ LIST path\label\num ================#
-
-# gmpy_cdirs_ls_all_dirs
-gmpy_cdirs_ls_all_dirs() {
-    local oIFS line
-
-    [ -r "${gmpy_cdirs_env}" ] || return 1
-    oIFS="${IFS}"
-    IFS=$'\n'
-    for line in $(\grep -v "^$" ${gmpy_cdirs_env} | sort -k 1 -n)
+cdirs_cdj_do() {
+    local match path
+    for path in ${cdirs_jump_list[@]}
     do
-        IFS="${oIFS}"
-        gmpy_cdirs_ls_format ${line}
-        IFS=$'\n'
+        [ "$1" = "$(basename ${path})" ] && match=(${match[@]} ${path})
     done
-    IFS="${oIFS}"
+
+    [ "${#match[@]}" -eq 0 ] && cdirs_white "Mismatch $1\n" && return
+    [ "${#match[@]}" -eq 1 ] && cdirs_jump ${match[0]} && return
+
+    cdirs_jump "$(cdirs_choice ${match[@]})"
 }
 
-# gmpy_cdirs_ls_one_dir <num|label|path>
-gmpy_cdirs_ls_one_dir() {
-    case "`gmpy_cdirs_check_type "$1"`" in
-        num)
-            gmpy_cdirs_ls_format $(gmpy_cdirs_get_env_from_num "$1")
-            ;;
-        path)
-            local line
-            while read line
-            do
-                gmpy_cdirs_ls_format ${line}
-            done <<< "$(gmpy_cdirs_get_env_from_path "$(gmpy_cdirs_get_absolute_path $1)")"
-            ;;
-        *)  #support regular expression
-            local line
-            while read line
-            do
-                gmpy_cdirs_ls_format ${line}
-            done <<< "$(gmpy_cdirs_get_env_from_label "$1")"
-            ;;
-    esac
-}
-
-# gmpy_cdirs_ls_format <num> <label> <path>
-gmpy_cdirs_ls_format() {
-    [ $# -ne 3 ] && return 1
-    \echo "$@" \
-        | \awk '{printf ("\033[32m%d)\t%-16s\t%s\033[0m\n",$1,$2,$3)}'
-}
-
-
-#================ CLEAR path\label\num ================#
-
-# gmpy_cdirs_clear_global_label_from_label <label>
-gmpy_cdirs_clear_global_label_from_label() {
-    [ $# -lt 1 ] && return 1
-    [ ! -f ${gmpy_cdirs_default} ] && return 2
-    \sed -i "/^$1 *=/d" ${gmpy_cdirs_default} && return 0 || return 1
-}
-
-# gmpy_cdirs_clear_dir <global|no_global> <num|label|path>
-gmpy_cdirs_clear_dir() {
-    local env num label
-    case "$(gmpy_cdirs_check_type "$2")" in
-        "num")
-            env="$(gmpy_cdirs_get_env_from_num "$2" | head -n 1)"
-            num="$2"
-            label="$(\echo "${env}" | \awk '{print $2}')"
-            ;;
-        "label")
-            env="$(gmpy_cdirs_get_env_from_label "$2" | head -n 1)"
-            num="$(\echo "${env}" | \awk '{print $1}')"
-            label="${2}"
-            ;;
-        "path")
-            env="$(gmpy_cdirs_get_env_from_path "$2" | head -n 1)"
-            num="$(\echo "${env}" | \awk '{print $1}')"
-            label="$(\echo "${env}" | \awk '{print $2}')"
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-    [ -z "${env}" -o -z "${num}" -o -z "${label}" ] && return 1
-
-    \echo -ne "\033[31mdelete:\t\033[0m"
-    [ "$1" = "global" ] && {
-        gmpy_cdirs_clear_global_label_from_label "${label}" \
-            && \echo -ne "\033[33m[global]\033[0m"
-    }
-    [ -r "${gmpy_cdirs_env}" -a -w "${gmpy_cdirs_env}" ] || return 1
-    eval "\sed -i '/^${num} /d' ${gmpy_cdirs_env}"
-    gmpy_cdirs_ls_format ${env}
-}
-
-# gmpy_cdirs_clear_all [no_global|global]
-gmpy_cdirs_clear_all() {
-    [ "$1" = "global" ] && \echo > ${gmpy_cdirs_default}
-    [ -w "${gmpy_cdirs_env}" ] \
-        && \echo > ${gmpy_cdirs_env}
-}
-
-#================ SET path\label\num ================#
-
-# gmpy_cdirs_set_global_dir <label> <path>
-gmpy_cdirs_set_global_dir() {
-    \echo "$1 = ${path}" >> ${gmpy_cdirs_default}
-}
-
-# gmpy_cdirs_set_env <global|no_global> <num> <label> <path>
-gmpy_cdirs_set_env() {
-    [ "$1" = "global" ] \
-        && gmpy_cdirs_set_global_dir "$3" "$4" && \echo -ne "\033[33m[global]\033[0m"
-    [ -w "${gmpy_cdirs_env}" ] \
-        && \echo "$2 $3 $4" >> ${gmpy_cdirs_env}
-}
-
-# gmpy_cdirs_reset
-# Turn back to initial status
-gmpy_cdirs_reset() {
-    gmpy_cdirs_clear_all
-    unset gmpy_cdirs_cnt
-    gmpy_cdirs_load_config
-    gmpy_cdirs_load_global_labels
-}
-
-#================ global dirs ================#
-
-# gmpy_cdirs_load_global_labels
-# load default label by ~/.cdir_default
-gmpy_cdirs_load_global_labels() {
-    eval "[ ! -f ${gmpy_cdirs_default} ] && return 2"
-
-    local line
-    local oIFS="${IFS}"
-    IFS=$'\n'
-    for line in $(eval "cat ${gmpy_cdirs_default}" | \egrep -v "^#.*$|^$" | \grep "=")
-    do
-        IFS="${oIFS}"
-        # Enable path with variable
-        _setdir $(\echo ${line%%=*}) "$(eval \echo ${line##*=})" "no_global"
-        IFS=$'\n'
-    done
-    IFS="${oIFS}"
-}
-
-#================ help ================#
-
-# gmpy_cdirs_print_help <cdir|lsdir|setdir|cldir>
-gmpy_cdirs_print_help() {
-    case "$1" in
-        cdir)
-            \echo -e "\033[33mcdir [-h|--help] [--reload] [--reset] [<-n|--num> <num>] [<-l|--label|> <label>] [<-p|--path> <path>] [num|label|path]\033[0m"
-            \echo -e "\033[33mcdir [-t|--tag <label>] [-d|--depth <num>] -f <dir>\033[0m"
-            \echo -e "\033[33mcdir <,>\033[0m"
-            \echo "--------------"
-            \echo -e "\033[32mcdir [num|label|path] :\033[0m"
-            \echo -e "    Change directory to num-path, label-path or path."
-            \echo -e "    The num or label is set by <setdir>, you can get all nums and labels by <lsdir>."
-            \echo -e "    See also <setdir -h> and <lsdir -h>"
-            \echo -ne "\033[31m"
-            \echo -e "    Note: cdir [path] is the same as builtin cd [path]\033[0m\n"
-            \echo -e "\033[32mcdir [-n|--num <num>] [<-l|--label|> <label>] [<-p|--path> <path>] :\033[0m"
-            \echo -e "    Specify out the parameter type as num|label|path"
-            \echo -ne "\033[31m"
-            \echo -e "    Note: if there is a directory which name is the same as num|label,"
-            \echo -e "    cdir will go to this directory rather than num-path|label-path\033[0m\n"
-            \echo -e "\033[32mcdir [-t|--tag <label>] [-d|--depth <num>] -f <dir>\033[0m"
-            \echo -e "    Find directory from label-path specified by -t|--tag or current directory default."
-            \echo -e "    And the maximum depth to find is specified by -d|--depth."
-            \echo -e "    If get any directory matched <dir>, go to it."
-            \echo -ne "\033[31m"
-            \echo -e "    Note: <dir> can be in wildcard, see more command find\033[0m"
-            \echo -e "\033[32mcdir , :\033[0m"
-            \echo -e "    Change directory to mark-path, which is set by <setdir ,>. See also <setdir --help>\n"
-            \echo -e "\033[32mcdir -h|--help :\033[0m"
-            \echo -e "    Show this messages\n"
-            \echo -e "\033[32mcdir --reload :\033[0m"
-            \echo -e "    Reload global label-path and setting but do not clear any label-path"
-            \echo -e "    [ default: ~/.cdirs_default and ~/.cdirsrc ]\n"
-            \echo -e "\033[32mcdir --reset :\033[0m"
-            \echo -e "    Reload global label-path and setting but also clear any label-path"
-            \echo -e "    [ default: ~/.cdirs_default and ~/.cdirsrc ]\n"
-            \echo -ne "\033[31m"
-            \echo -e "    Note: cdir is a superset of cd, so you can use it like cd"
-            \echo -e "          (In fact, my support for cdirs is to replace cd)\033[0m"
-            ;;
-        setdir)
-            \echo -e "\033[33msetdir [-h|--help] [-g|--global] <label> <path>\033[0m"
-            \echo -e "\033[33msetdir <,>\033[0m"
-            \echo "--------------"
-            \echo -e "\033[32msetdir [-g|--global] label path :\033[0m"
-            \echo -e "    Set label-path, then, you can use \"cdir <label>\" or \"cdir <num>\" to go to path."
-            \echo -e "    If setdir with -g|--global, label will be also record in global label-path"
-            \echo -e "    [ default: ~/.cdirs_default ]"
-            \echo -e "    The num increase by degrees in default, and the path must be directory and existed"
-            \echo -e "    The label is in format:"
-            \echo -n "        label starts with "
-                            [ -n "${gmpy_cdirs_mark_symbol}" ] \
-                            && \echo -n "'${gmpy_cdirs_mark_symbol}'" \
-                            || \echo -n "letter"
-                            \echo -n " and combinates with letter, number and symbol "
-                            \echo "'${gmpy_cdirs_label_symbol}'"
-            \echo -e "    Moreover, path strings is support characters like . or .. or ~ or -"
-            \echo -e "    Eg. \"setdir ,work .\" or \"setdir ,cdirs ~/cdirs\" or \"setdir ,last_dir -\" or others\n"
-            \echo -e "\033[32msetdir , :\033[0m"
-            \echo -e "    Set current path as mark-path, which is usefull and quick for recording working path."
-            \echo -e "    You can go back fastly by \"cdir ,\"\n"
-            \echo -e "\033[32msetdir [-h|--help] :\033[0m"
-            \echo -e "    Show this messages\n"
-            \echo -en "\033[31mNote: label starts with "
-                            [ -n "${gmpy_cdirs_mark_symbol}" ] \
-                            && \echo -n "'${gmpy_cdirs_mark_symbol}'" \
-                            || \echo -n "letter"
-                            \echo -n " and combinates with letter, number and symbol "
-                            \echo "'${gmpy_cdirs_label_symbol}'\033[0m"
-            ;;
-        cldir)
-            \echo -e "\033[33mcldir [-h|--help] [-g|--global] [-a|--all] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
-            \echo -e "\033[33mcldir <,>\033[0m"
-            \echo "--------------"
-            \echo -e "\033[32mcldir [-g|--global] <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
-            \echo -e "    Clear label-path. If path, clear all label-path matching this path"
-            \echo -e "    If -g|--global existed, also clear global label-path [ defualt: ~/.cdirs_default ]\n"
-            \echo -e "\033[32mcldir , :\033[0m"
-            \echo -e "    Clear the mark-path. see also \"setdir --help\"\n"
-            \echo -e "\033[32mcldir -h|--help :\033[0m"
-            \echo -e "    Show this messages\n"
-            \echo -e "\033[32mcldir [-g|--global] -a|--all :\033[0m"
-            \echo -e "    Clear all label-path"
-            \echo -e "    If -g|--global existed, clear all global label-path [ defualt: ~/.cdirs_default ]\n"
-            ;;
-        lsdir)
-            \echo -e "\033[33mlsdir [-h|--help] [-p|--path <num|label|path>] <num1|label1|path1> <num2|label2|path2> ...\033[0m"
-            \echo -e "\033[33mlsdir <,>\033[0m"
-            \echo "--------------"
-            \echo -e "\033[32mlsdir <num1|label1|path1> <num2|label2|path2> ... :\033[0m"
-            \echo -e "    List the label-path. if path, list all label-path matching this path\n"
-            \echo -e "\033[32mlsdir <,> :\033[0m"
-            \echo -e "    List the mark-path. see also \"setdir --help\"\n"
-            \echo -e "\033[32mlsdir [-h|--help] :\033[0m"
-            \echo -e "    Show this messages\n"
-            \echo -e "\033[32mlsdir [-p|--path <num|label|path>] :\033[0m"
-            \echo -e "    Only print path of label-path, which is usefull to embedded in other commands"
-            \echo -e "    Eg. cat \`lsdir -p cdirs\`/readme.txt => cat /home/user/cdirs/readme.txt"
-            ;;
-    esac
-}
-
-#================ basical ================#
-
-#gmpy_cdirs_load_config
-gmpy_cdirs_load_config() {
-    eval "[ -f "${gmpy_cdirs_config}" ] && source ${gmpy_cdirs_config}"
-}
-
-# gmpy_cdirs_builtin_cd <path>
-gmpy_cdirs_builtin_cd() {
-    \echo $1 | \grep " " &>/dev/null \
-        && builtin cd "$*" \
-        || builtin cd $@
-}
-
-gmpy_cdirs_init() {
-    local alias_cd=1
-    local opts="$(getopt -l "${init_options_list_full}" -o "h" -- $@)" || return 1
+cdirs_cd() {
+    local opts label
+    opts="$(getopt -l "reload,reset" -o "hl:g" -- $@)" || return 1
     eval set -- "${opts}"
     while true
     do
         case "$1" in
-            --unalias-cd)
-                alias_cd=0
+            -h)
+                cdirs_help "cd"
+                return 0
+                ;;
+            --reload)
+                cdirs_load_config &>/dev/null
+                cdirs_load_default
+                return 0
+                ;;
+            --reset)
+                cdirs_reset
+                return 0
+                ;;
+            -l)
                 shift
+                label="$1"
+                ;;
+            -g)
+                cdirs_penv="${cdirs_global_env}"
                 ;;
             --)
                 shift
                 break
                 ;;
-            *)
+        esac
+        shift
+    done
+
+    label="${label:-"$@"}"
+
+    cdirs_cd_do "${label}"
+
+    unset cdirs_penv
+}
+
+cdirs_cds() {
+    local opts
+    opts="$(getopt -o "hgdla" -- $@)" || return 1
+    eval set -- "${opts}"
+    while true
+    do
+        case "$1" in
+            -h)
+                cdirs_help "cds"
+                return 0
+                ;;
+            -g)
+                cdirs_penv="${cdirs_penv} ${cdirs_global_env}"
+                ;;
+            -d)
+                cdirs_penv="${cdirs_penv} ${cdirs_default_env}"
+                ;;
+            -l)
+                cdirs_penv="${cdirs_penv} ${cdirs_local_env}"
+                ;;
+            -a)
+                cdirs_penv="${cdirs_global_env} ${cdirs_local_env} ${cdirs_default_env}"
+                ;;
+            --)
                 shift
+                break
+                ;;
+        esac
+        shift
+    done
+    [ -z "${cdirs_penv}" ] && cdirs_penv="${cdirs_global_env}"
+
+    if [ "$#" -le 0 ]; then
+        cdirs_help "cds"
+    elif [ "$1" = ',' ]; then
+        cdirs_set_mark
+    elif [ "$#" -eq 1 ]; then
+        cdirs_cds_do "$1" "${PWD}"
+    else
+        cdirs_cds_do "$1" "$(shift; echo $@)"
+    fi
+
+    unset cdirs_penv
+}
+
+cdirs_cdl() {
+    local opts
+    opts=`getopt -o "hp:gdla" -- $@` || return 1
+    eval set -- "${opts}"
+    while true
+    do
+        case "$1" in
+            -h)
+                cdirs_help "cdl"
+                return 0
+                ;;
+            -p)
+                shift
+                [ "$1" = "," ] \
+                    && cdirs_get_mark \
+                    || cdirs_get_top "$1"
+                return 0
+                ;;
+            -g)
+                cdirs_penv="${cdirs_penv} ${cdirs_global_env}"
+                ;;
+            -d)
+                cdirs_penv="${cdirs_penv} ${cdirs_default_env}"
+                ;;
+            -l)
+                cdirs_penv="${cdirs_penv} ${cdirs_local_env}"
+                ;;
+            -a)
+                cdirs_penv="${cdirs_global_env} ${cdirs_local_env} ${cdirs_default_env}"
+                ;;
+            --)
+                shift
+                break
+                ;;
+        esac
+        shift
+    done
+
+    if [ "$1" = ',' ]; then
+        [ -n "${cdirs_mark}" ] && cdirs_ls_one "," $(cdirs_get_mark)
+    else
+        #if cdirs_penv NULL, list upper
+        cdirs_cdl_do $@
+    fi
+
+    unset cdirs_penv
+}
+
+cdirs_cdd() {
+    local opts
+    opts=`getopt -o "hglda" -- $@` || return 1
+    eval set -- "${opts}"
+    while true
+    do
+        case "$1" in
+            -h)
+                cdirs_help "cdd"
+                return 0
+                ;;
+            -g)
+                cdirs_penv="${cdirs_penv} ${cdirs_global_env}"
+                ;;
+            -d)
+                cdirs_penv="${cdirs_penv} ${cdirs_default_env}"
+                ;;
+            -l)
+                cdirs_penv="${cdirs_penv} ${cdirs_local_env}"
+                ;;
+            -a)
+                cdirs_penv="${cdirs_global_env} ${cdirs_local_env} ${cdirs_default_env}"
+                ;;
+            --)
+                shift
+                break
+                ;;
+        esac
+        shift
+    done
+    [ -z "${cdirs_penv}" ] && cdirs_penv="${cdirs_global_env}"
+
+    cdirs_cdd_do $@
+
+    unset cdirs_penv
+}
+
+cdirs_cdj() {
+    local opts depth
+    opts=`getopt -o "h" -- $@` || return 1
+    eval set -- "${opts}"
+    while true
+    do
+        case "$1" in
+            -h)
+                cdirs_help "cdj"
+                return 0
+                ;;
+            --)
+                shift
+                break
                 ;;
         esac
     done
 
-    [ "${alias_cd}" -eq "1" ] && alias cd='cdir'
-
-    gmpy_cdirs_load_config
-    gmpy_cdirs_env="/tmp/cdirs/cdirs.env.$$" \
-        && mkdir -p /tmp/cdirs -m 1777\
-        && touch ${gmpy_cdirs_env}
-    [ -z "${gmpy_cdirs_default}" ] \
-        && gmpy_cdirs_default="${HOME}/.cdirs_default"
-    [ -z "${gmpy_cdirs_mark_symbol}" ] \
-        && gmpy_cdirs_mark_symbol=','
-    [ -z "${gmpy_cdirs_label_symbol}" ] \
-        && gmpy_cdirs_label_symbol='-'
-    [ -z "${gmpy_cdirs_find_default_depth}" ] \
-        && gmpy_cdirs_find_default_depth=2
-    gmpy_cdirs_load_global_labels &>/dev/null
-
-    complete -F gmpy_cdirs_complete_func -o dirnames \
-        "setdir" "lsdir" "cldir" "cdir" \
-        "$([ "${alias_cd}" -eq "1" ] && \echo "cd")"
-
-}
-
-#================ completation ================#
-
-# gmpy_cdirs_complete_func <input>
-gmpy_cdirs_complete_func() {
-    local cmd="$1"
-    local cur="${COMP_WORDS[COMP_CWORD]}"
-    local pre="${COMP_WORDS[COMP_CWORD-1]}"
-    local line="${COMP_LINE}"
-    local complete_list
-
-    case "${cmd}" in
-        cldir|lsdir)
-            if [ "${cur:0:2}" = "--" ]; then
-                complete_list="--$(eval "\echo \"\${${cmd}_options_list_full}\" | \sed 's/,/ --/g' | \sed 's/://g'")"
-            elif [ "${cur:0:1}" = "-" ]; then
-                complete_list="$(eval "\echo \"\${${cmd}_options_list}\" | \sed 's/://g' | \sed 's/[[:alpha:]]/-& /g'")"
-            else
-                complete_list="$(gmpy_cdirs_get_all_label)"
-            fi
-            ;;
-        setdir)
-            if [ "${cur:0:2}" = "--" ]; then
-                complete_list="--$(\echo "${setdir_options_list_full}" | \sed 's/,/ --/g' | \sed 's/://g')"
-            elif [ "${cur:0:1}" = "-" ]; then
-                complete_list="$(\echo "${setdir_options_list}" | \sed 's/://g' | \sed 's/[[:alpha:]]/-& /g')"
-            else
-                local opts_cnt="$(( $(\echo ${line} | wc -w) - $(\echo "${line}" | \sed -r 's/ -[[:alpha:]]+ / /g' | wc -w) ))"
-                [ $(( ${COMP_CWORD} - ${opts_cnt} )) -eq 1 ] && complete_list="$(gmpy_cdirs_get_all_label)"
-            fi
-            ;;
-        cd|cdir)
-            case "${pre}" in
-                "-l"|"--label")
-                    complete_list="$(gmpy_cdirs_get_all_label)"
-                    ;;
-                "-n"|"--num")
-                    complete_list="$(gmpy_cdirs_get_all_num)"
-                    ;;
-                "-p"|"--path")
-                    complete_list=
-                    ;;
-                "-t"|"--tag")
-                    complete_list="$(gmpy_cdirs_get_all_label)"
-                    ;;
-                "-d"|"--depth")
-                    complete_list=
-                    ;;
-                "-f"|"--find")
-                    local tag_path opt cnt fdepth
-
-                    # get tag
-                    cnt=0
-                    for opt in ${COMP_WORDS[@]}
-                    do
-                        cnt=$(( ${cnt} + 1 ))
-                        [ "${opt}" = "-t" \
-                            -o "${opt}" = "--tag" ] && break
-                    done
-                    tag_path="$(_cdir "${COMP_WORDS[cnt]:-"."}" "label")"
-
-                    # get depth
-                    cnt=0
-                    for opt in ${COMP_WORDS[@]}
-                    do
-                        cnt=$(( ${cnt} + 1 ))
-                        [ "${opt}" = "-d" \
-                            -o "${opt}" = "--depth" ] && break
-                    done
-                    fdepth="${COMP_WORDS[cnt]:-${gmpy_cdirs_find_default_depth}}"
-
-                    # save previous tag_path|depth|dirs for complete quick
-                    [ "${tag_path}" = "${gmpy_cdirs_previous_tag}" \
-                        -a "${fdepth}" = "${gmpy_cdirs_previous_depth}" \
-                        -a -n "${gmpy_cdirs_previous_dirs}" ] \
-                        && complete_list="${gmpy_cdirs_previous_dirs}" \
-                        || {
-                            complete_list="$(gmpy_cdirs_get_dirs_name "${tag_path}" "${fdepth}")"
-                            gmpy_cdirs_previous_depth="${fdepth}"
-                            gmpy_cdirs_previous_tag="${tag_path}"
-                            gmpy_cdirs_previous_dirs="${complete_list}"
-                        }
-                    ;;
-                *)
-                    if [ "${cur:0:2}" = "--" ]; then
-                        complete_list="--$(\echo "${cdir_options_list_full}" | \sed 's/,/ --/g' | \sed 's/://g')"
-                    elif [ "${cur:0:1}" = "-" ]; then
-                        complete_list="$(\echo "${cdir_options_list}" | \sed 's/://g' | \sed 's/[[:alpha:]]/-& /g')"
-                    elif [ -n "${gmpy_cdirs_mark_symbol}" -a "${cur:0:1}" = "${gmpy_cdirs_mark_symbol}" ]; then
-                        complete_list="$(gmpy_cdirs_get_all_label)"
-                    elif [ -z "${gmpy_cdirs_mark_symbol}" ]; then
-                        complete_list="$(gmpy_cdirs_get_all_label)"
-                    fi
-                    ;;
-            esac
-        ;;
-    esac
-    COMPREPLY=($(compgen -W "${complete_list}" -- "${cur}"))
-}
-
-#================ find dir ================#
-
-#gmpy_cdirs_find_dirs <dir> <tag_path> <maxdepth>
-gmpy_cdirs_find_dirs() {
-    local cmd
-    cmd="find $2 -maxdepth $3 -name \"${1}\" -type d 2>/dev/null"
-    \echo $(eval "${cmd}")
-}
-
-#gmpy_cdirs_get_dirs_name <tag_path> <find_depth>
-gmpy_cdirs_get_dirs_name() {
-    local cmd
-    cmd="find $1 -maxdepth $2 -type d 2>/dev/null | xargs -I {} basename {}"
-    \echo $(eval "${cmd}")
-}
-
-#gmpy_cdirs_cd_find <dirname> <tag_path> <find_depth>
-gmpy_cdirs_cd_find() {
-    local f_result f_cnt
-    [ -d "$2" ] || {
-        \echo "$2: Not existed or directory"
-        return 1
-    }
-    gmpy_cdirs_check_whether_num "$3" || {
-        \echo "$3: Not num for depth"
-        return 1
-    }
-    f_result=($(gmpy_cdirs_find_dirs "$1" "$2" "$3"))
-    f_cnt=${#f_result[@]}
-
-    if [ "${f_cnt}" -gt "1" ]; then
-        local cnt=0
-        local result
-        \echo "Which one do you want:"
-        for result in ${f_result[@]}
-        do
-            \echo "${cnt}: ${result}"
-            cnt="$(( ${cnt} + 1 ))"
-        done
-        while true
-        do
-            read -p "Your choice: " cnt
-            gmpy_cdirs_check_whether_num "${cnt}" || {
-                \echo -e "\033[31m${cnt}: Invaild Input - Not Num\033[0m"
-                continue
-            }
-            [ "${cnt}" -ge "${f_cnt}" ] && {
-                \echo -e "\033[31m${cnt}: Invaild Input - Error Num\033[0m"
-                continue
-            }
-            \echo -e "\033[32m${f_result[cnt]}\033[0m"
-            gmpy_cdirs_builtin_cd "${f_result[cnt]}"
-            break
-        done
-    elif [ "${f_cnt}" -eq "1" ]; then
-        \echo -e "\033[32m${f_result}\033[0m"
-        gmpy_cdirs_builtin_cd "${f_result}"
+    if [ -n "$1" ]; then
+        cdirs_cdj_do $1
     else
-        \echo -e "\033[31mCan't find $1\033[0m"
+        cdirs_jump "${PWD}"
     fi
-    # for complete quick
-    unset gmpy_cdirs_previous_depth
-    unset gmpy_cdirs_previous_tag
-    unset gmpy_cdirs_previous_dirs
 }
 
-#gmpy_cdirs_check_whether_num <num>
-gmpy_cdirs_check_whether_num() {
-    \echo "$1" | \egrep "^[[:digit:]]+$" &>/dev/null
+cdirs_cdb() {
+    local opts depth
+    opts=`getopt -o "hd:" -- $@` || return 1
+    eval set -- "${opts}"
+    while true
+    do
+        case "$1" in
+            -h)
+                cdirs_help "cdb"
+                return 0
+                ;;
+            -d)
+                shift
+                \egrep -q "^[0-9]+$" <<< "$1" || {
+                    cdirs_red "-d need a num: $1\n"
+                    return 1
+                }
+                depth="$1"
+                ;;
+            --)
+                shift
+                break
+        esac
+        shift
+    done
+
+    cdirs_cdb_do "$*" "${depth}"
 }
 
-gmpy_cdirs_init $@
+cdirs_cdf() {
+    local opts base depth
+    opts="$(getopt -o "hd:t:" -- $@)" || return 1
+    eval set -- "${opts}"
+    while true
+    do
+        case "$1" in
+            -h)
+                cdirs_help "cdf"
+                return 0
+                ;;
+            -d)
+                shift
+                \egrep -q "^[0-9]+$" <<< "$1" || {
+                    cdirs_red "-d need a num: $1\n"
+                    return 1
+                }
+                depth="$1"
+                ;;
+            -t)
+                shift
+                base="$(cdirs_get_top $1)"
+                ;;
+            --)
+                shift
+                break
+                ;;
+        esac
+        shift
+    done
+    [ "$#" -ne 1 ] && echo "Invalid Directory" && return 1
+    [ -z "${base}" ] && base="${PWD}"
+    [ -z "${depth}" ] && depth="${cdirs_find_depth}"
+
+    cdirs_cdf_do "${base}" "${depth}" "$1"
+
+    unset cdirs_find_pre_base
+    unset cdirs_find_pre_dirs
+    unset cdirs_find_pre_depth
+}
+
+cdirs_clean_old() {
+    local config
+    for config in $(find ${cdirs_local_env%/*}/* -user ${USER})
+    do
+        ps $(awk -F'.' '{print $3}' <<< ${config}) &>/dev/null \
+            || rm -f ${config}
+    done
+    rm -f ${cdirs_local_env}
+}
+
+cdirs_init() {
+    mkdir -p /tmp/cdirs -m 1777
+
+    [ -z "${cdirs_config}" ] \
+        && cdirs_config="${HOME}/.cdirsrc"
+    [ -z "${cdirs_local_env}" ] \
+        && cdirs_local_env="/tmp/cdirs/cdirs-local-$$" \
+        && cdirs_clean_old
+    [ -z "${cdirs_global_env}" ] \
+        && cdirs_global_env="/tmp/cdirs/cdirs-global-${USER}"
+    [ -z "${cdirs_default}" ] \
+        && cdirs_default_env="${HOME}/.cdirs-default"
+    [ -z "${cdirs_mark_symbol}" ] \
+        && cdirs_mark_symbol=','
+    [ -z "${cdirs_label_symbol}" ] \
+        && cdirs_label_symbol='-'
+    [ -z "${cdirs_find_default_depth}" ] \
+        && cdirs_find_depth=3
+
+    cdirs_load_config &>/dev/null
+    cdirs_load_default &>/dev/null
+
+    alias cd='cdirs_cd'
+    alias cds='cdirs_cds'
+    alias cdl='cdirs_cdl'
+    alias cdd='cdirs_cdd'
+    alias cdj='cdirs_cdj'
+    alias cdb='cdirs_cdb'
+    alias cdf='cdirs_cdf'
+
+    complete -F cdirs_fix_cd -o dirnames "cd"
+    complete -F cdirs_fix_cds -o dirnames "cds"
+    complete -F cdirs_fix_cdl "cdl"
+    complete -F cdirs_fix_cdd "cdd"
+    complete -F cdirs_fix_cdj "cdj"
+    complete -F cdirs_fix_cdb "cdb"
+    complete -F cdirs_fix_cdf "cdf"
+}
+
+cdirs_init
