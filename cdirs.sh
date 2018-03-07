@@ -905,7 +905,7 @@ cdirs_init() {
         && cdirs_config="${HOME}/.cdirsrc"
     [ -z "${cdirs_local_env}" ] \
         && cdirs_local_env="/tmp/cdirs/cdirs-local-$$" \
-        && cdirs_clean_old
+        && cdirs_clean_old &>/dev/null
     [ -z "${cdirs_global_env}" ] \
         && cdirs_global_env="/tmp/cdirs/cdirs-global-${USER}"
     [ -z "${cdirs_default}" ] \
