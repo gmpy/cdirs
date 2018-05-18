@@ -892,7 +892,7 @@ cdirs_clean_old() {
     local config
     for config in $(find ${cdirs_local_env%/*}/* -user ${USER})
     do
-        ps $(awk -F'.' '{print $3}' <<< ${config}) &>/dev/null \
+        ps $(awk -F'-' '{print $3}' <<< ${config}) &>/dev/null \
             || rm -f ${config}
     done
     rm -f ${cdirs_local_env}
