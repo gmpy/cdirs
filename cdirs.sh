@@ -890,7 +890,7 @@ cdirs_cdf() {
 
 cdirs_clean_old() {
     local config
-    for config in $(find ${cdirs_local_env%/*}/* -user ${USER})
+    for config in $(find ${cdirs_local_env%/*}/* -user ${USER} -name "cdirs-local*")
     do
         ps $(awk -F'-' '{print $3}' <<< ${config}) &>/dev/null \
             || rm -f ${config}
