@@ -334,8 +334,10 @@ cdirs_fix_cd() {
         fix_list="--reload --reset"
     elif [ "${cur:0:1}" = "-" ]; then
         fix_list="-h -l -g"
-    else
+    elif [ "${cur:0:1}" = "," ]; then
         fix_list="$(cdirs_get_all_label)"
+    else
+	fix_list=""
     fi
 
     COMPREPLY=($(compgen -W "${fix_list}" -- "${cur}"))
